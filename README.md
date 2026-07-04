@@ -130,5 +130,22 @@ make down            # stop local infrastructure
 Formatting is enforced: `mvn verify` fails if any file is not formatted. Run
 `make format` before committing.
 
+### Logging
+
+Logging is configured once for all services in
+[`shared/src/main/resources/logback-spring.xml`](shared/src/main/resources/logback-spring.xml).
+
+- **Default / dev** — human-readable colored console, tagged with the service
+  name and `[traceId,spanId]` correlation IDs.
+- **`json` / `prod` profile** — ECS structured JSON to stdout, ready for
+  Elasticsearch / Loki / any log pipeline:
+
+  ```bash
+  SPRING_PROFILES_ACTIVE=json java -jar check-service/target/check-service.jar
+  ```
+
+Always log through SLF4J (`private static final Logger log = ...`) — never
+`System.out.println`.
+
 See [`CLAUDE.md`](CLAUDE.md) for detailed coding conventions and
 [`AGENTS.md`](AGENTS.md) for per-service ownership boundaries.

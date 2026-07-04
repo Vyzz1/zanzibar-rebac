@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Shared logging configuration for all zanzibar-rebac services.
+
+  Because every service depends on the `shared` module, this single file is the
+  one logging config picked up across the whole project — keep it here, not in
+  individual services.
+
+  Profiles:
+    * default / dev  -> human-readable, colored console with correlation ids
+    * json / prod    -> ECS structured JSON to stdout (container/prod friendly)
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="appName"
+                    source="spring.application.name" defaultValue="zanzibar"/>
+
+    <!-- ============ dev / local: readable colored console ============ -->
+    <springProfile name="!json &amp; !prod">
+        <property name="CONSOLE_PATTERN"
+                  value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%-5level) %clr([${appName}]){blue} %clr([%X{traceId:-},%X{spanId:-}]){magenta} %clr(%logger{36}){cyan} %clr(:){faint} %msg%n%wEx"/>
+
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${CONSOLE_PATTERN}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <!-- our own code is chatty in dev, quiet in prod -->
+        <logger name="zanzibar.huynhvy" level="DEBUG"/>
+    </springProfile>
+
+    <!-- ============ prod / json: ECS structured logs to stdout ============ -->
+    <springProfile name="json | prod">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+                <format>ecs</format>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+</configuration>
