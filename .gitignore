@@ -1,0 +1,48 @@
+# Maven / build output
+target/
+*.jar
+*.war
+*.class
+dependency-reduced-pom.xml
+.flattened-pom.xml
+!.mvn/wrapper/maven-wrapper.jar
+
+# JOOQ generated sources
+**/generated-sources/
+**/generated/jooq/
+
+# Spring Boot
+*.log
+logs/
+application-local.yml
+application-local.yaml
+
+# IDE — IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# IDE — Eclipse / VS Code
+.classpath
+.project
+.settings/
+.vscode/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env / secrets
+.env
+*.env
+*.pem
+*.key
+
+# Test / coverage
+.surefire-reports/
+**/test-output/
+*.hprof

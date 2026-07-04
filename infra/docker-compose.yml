@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles:
+      - docker-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: zanzibar
+
+  redis:
+    image: redis:7-alpine
+    profiles:
+      - main
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    profiles:
+      - main
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest

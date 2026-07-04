@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: check-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/zanzibar
+    username: postgres
+    password: secret
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8081
+
+grpc:
+  server:
+    port: 9091
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

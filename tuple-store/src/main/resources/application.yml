@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: tuple-store
+  datasource:
+    url: jdbc:postgresql://localhost:5432/zanzibar
+    username: postgres
+    password: secret
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+server:
+  port: 8082
+
+grpc:
+  server:
+    port: 9092
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

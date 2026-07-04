@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: namespace-manager
+  datasource:
+    url: jdbc:postgresql://localhost:5432/zanzibar
+    username: postgres
+    password: secret
+
+server:
+  port: 8084

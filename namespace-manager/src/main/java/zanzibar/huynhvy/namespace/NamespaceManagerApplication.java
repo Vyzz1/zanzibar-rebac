@@ -1,0 +1,11 @@
+package zanzibar.huynhvy.namespace;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class NamespaceManagerApplication {
+  public static void main(String[] args) {
+    SpringApplication.run(NamespaceManagerApplication.class, args);
+  }
+}
