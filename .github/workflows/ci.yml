@@ -48,7 +48,7 @@ jobs:
       # Fails the job if a secret (token, key, password) is found in the
       # working tree or git history.
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
