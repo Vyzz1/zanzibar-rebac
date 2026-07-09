@@ -1,0 +1,14 @@
+# Normalize all text files to LF in the repository and working tree, so builds
+# behave the same on Windows and on the Linux CI runner.
+* text=auto eol=lf
+
+# Files that must keep CRLF on checkout.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files Git must never touch.
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.gif binary
