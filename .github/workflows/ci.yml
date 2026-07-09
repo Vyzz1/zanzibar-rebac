@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# GITHUB_TOKEN stays read-only; the merge step uses a PAT instead (see below).
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # `verify` runs compile + spring-boot repackage + Spotless + Checkstyle
+      # (+ tests once they exist). This is the whole quality gate.
+      - name: Build, format, lint & test
+        run: mvn -B -ntp clean verify
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so gitleaks can scan every commit, not just the tip.
+          fetch-depth: 0
+
+      # Fails the job if a secret (token, key, password) is found in the
+      # working tree or git history.
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Scans Maven dependencies for known CVEs. `ignore-unfixed: true` means it
+      # only fails for vulnerabilities that actually have a fix available, so the
+      # gate never jams on an unpatchable transitive CVE.
+      - name: Dependency vulnerability scan (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+  auto-merge:
+    name: Auto-merge
+    needs: [build, security]
+    # Only on same-repo pull requests (secrets are not exposed to fork PRs),
+    # and never on drafts. To require an opt-in instead, add:
+    #   && contains(github.event.pull_request.labels.*.name, 'automerge')
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      # Uses a Personal Access Token (secret PAT_TOKEN), not GITHUB_TOKEN, so
+      # that: (1) the resulting push to main can trigger downstream workflows
+      # (e.g. a deploy), which GITHUB_TOKEN is not allowed to do, and (2) the
+      # merge can satisfy branch-protection rules that restrict who may merge.
+      - name: Merge the pull request
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --squash \
+            --delete-branch

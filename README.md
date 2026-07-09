@@ -122,13 +122,17 @@ grpcurl -plaintext localhost:9091 zanzibar.api.v1.AuthorizationService/Check
 ```bash
 make format          # apply the shared code style (mvn spotless:apply)
 mvn spotless:check   # verify formatting without changing files
+make checkstyle      # run static analysis (mvn checkstyle:check)
 mvn test             # run all tests
-mvn verify           # full build; also enforces formatting
+mvn verify           # full build; enforces formatting + checkstyle
 make down            # stop local infrastructure
 ```
 
-Formatting is enforced: `mvn verify` fails if any file is not formatted. Run
-`make format` before committing.
+Quality is enforced on `mvn verify`, which fails if any file is unformatted
+(Spotless) or breaks a lint rule (Checkstyle). Run `make format` before
+committing. Checkstyle rules live in
+[`config/checkstyle/checkstyle.xml`](config/checkstyle/checkstyle.xml) — they
+ban `System.out.println`, unused/redundant imports, and empty catch blocks.
 
 ### Logging
 

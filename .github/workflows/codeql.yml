@@ -1,0 +1,52 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly full scan (Mondays 03:17 UTC) to catch newly-published query rules.
+    - cron: "17 3 * * 1"
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze Java
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # required to upload results to the Security tab
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          # `security-and-quality` adds maintainability/reliability queries on
+          # top of the default security set; drop to `security-extended` or
+          # `default` if it is too noisy.
+          queries: security-and-quality
+
+      # Manual build (compile only) so CodeQL can trace the bytecode. No need to
+      # run tests / Spotless / Checkstyle here — that is the CI workflow's job.
+      - name: Build
+        run: mvn -B -ntp clean compile -DskipTests
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"
