@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package zanzibar.api.v1;
+
+option java_multiple_files = true;
+option java_package = "zanzibar.huynhvy.api";
+option java_outer_classname = "AuthorizationProto";
+
+// The atomic relationship: subject S has relation R on object O.
+message RelationTuple {
+  string namespace = 1;
+  string object_id = 2;
+  string relation = 3;
+  string subject_id = 4;
+}
+
+message CheckRequest {
+  string namespace = 1;
+  string object_id = 2;
+  string relation = 3;
+  string subject_id = 4;
+  // Optional consistency token; if set, the check must be at least as fresh.
+  string zookie = 5;
+}
+
+message CheckResponse {
+  bool allowed = 1;
+  string zookie = 2;
+}
+
+message BatchCheckRequest {
+  repeated CheckRequest checks = 1;
+}
+
+message BatchCheckResponse {
+  repeated CheckResponse results = 1;
+}
+
+message WriteTuplesRequest {
+  repeated RelationTuple tuples = 1;
+}
+
+message WriteTuplesResponse {
+  // Consistency token minted from the write's commit timestamp.
+  string zookie = 1;
+}
+
+message WatchRequest {
+  string namespace = 1;
+  // Resume cursor; empty means "from now on".
+  string zookie = 2;
+}
+
+message WatchEvent {
+  enum Operation {
+    OPERATION_UNSPECIFIED = 0;
+    CREATE = 1;
+    DELETE = 2;
+  }
+  Operation operation = 1;
+  RelationTuple tuple = 2;
+  string zookie = 3;
+}
+
+service AuthorizationService {
+  rpc Check(CheckRequest) returns (CheckResponse);
+  rpc BatchCheck(BatchCheckRequest) returns (BatchCheckResponse);
+  rpc WriteTuples(WriteTuplesRequest) returns (WriteTuplesResponse);
+  rpc Watch(WatchRequest) returns (stream WatchEvent);
+}
