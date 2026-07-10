@@ -3,8 +3,19 @@ spring:
     name: check-service
   datasource:
     url: jdbc:postgresql://localhost:5432/zanzibar
-    username: postgres
-    password: secret
+    username: checkservice_user
+    password: checkservice_pass
+    hikari:
+      connection-init-sql: SET search_path TO tuplestore
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: tuplestore
+  # check-service owns no tables; tuple-store's Flyway creates them.
+  flyway:
+    enabled: false
   data:
     redis:
       host: localhost
