@@ -37,3 +37,7 @@ management:
     web:
       exposure:
         include: health,prometheus
+
+# HMAC key used to sign Zookies. Override via ZOOKIE_SECRET in real environments.
+zookie:
+  secret: ${ZOOKIE_SECRET:dev-only-secret-change-me}

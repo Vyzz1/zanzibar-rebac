@@ -7,6 +7,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -16,6 +19,9 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @Table(name = "outbox_events")
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class OutboxEvent {
 
   @Id
@@ -41,50 +47,20 @@ public class OutboxEvent {
   @Column(name = "published_at")
   private OffsetDateTime publishedAt;
 
-  protected OutboxEvent() {
-    // required by JPA
-  }
-
-  public OutboxEvent(
-      String aggregateId, String eventType, String payload, OffsetDateTime createdAt) {
-    this.aggregateId = aggregateId;
-    this.eventType = eventType;
-    this.payload = payload;
-    this.createdAt = createdAt;
-    this.published = false;
+  /** Creates a new, unpublished event stamped with the current time. */
+  public static OutboxEvent create(String aggregateId, String eventType, String payload) {
+    OutboxEvent event = new OutboxEvent();
+    event.aggregateId = aggregateId;
+    event.eventType = eventType;
+    event.payload = payload;
+    event.createdAt = OffsetDateTime.now();
+    event.published = false;
+    return event;
   }
 
   /** Marks this event as published at the given instant. */
   public void markPublished(OffsetDateTime at) {
     this.published = true;
     this.publishedAt = at;
-  }
-
-  public Long getId() {
-    return id;
-  }
-
-  public String getAggregateId() {
-    return aggregateId;
-  }
-
-  public String getEventType() {
-    return eventType;
-  }
-
-  public String getPayload() {
-    return payload;
-  }
-
-  public OffsetDateTime getCreatedAt() {
-    return createdAt;
-  }
-
-  public boolean isPublished() {
-    return published;
-  }
-
-  public OffsetDateTime getPublishedAt() {
-    return publishedAt;
   }
 }
