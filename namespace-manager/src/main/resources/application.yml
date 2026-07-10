@@ -3,8 +3,22 @@ spring:
     name: namespace-manager
   datasource:
     url: jdbc:postgresql://localhost:5432/zanzibar
-    username: postgres
-    password: secret
+    username: namespace_user
+    password: namespace_pass
+    hikari:
+      connection-init-sql: SET search_path TO namespace
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: namespace
+  flyway:
+    enabled: true
+    schemas: namespace
+    default-schema: namespace
+    locations: classpath:db/migration
+    table: flyway_schema_history
 
 server:
   port: 8084

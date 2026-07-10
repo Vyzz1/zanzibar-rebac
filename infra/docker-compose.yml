@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:13-alpine
     profiles:
       - docker-postgres
     ports:
@@ -8,6 +8,9 @@ services:
     environment:
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: zanzibar
+    volumes:
+      # Runs once on first init to provision per-service schemas and roles.
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
 
   redis:
     image: redis:7-alpine

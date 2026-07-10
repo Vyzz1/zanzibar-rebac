@@ -1,0 +1,90 @@
+package zanzibar.huynhvy.tuplestore.outbox;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+/**
+ * JPA mapping of the {@code tuplestore.outbox_events} table. Rows are inserted in the same
+ * transaction as the tuple write and later drained by {@link OutboxPoller}.
+ */
+@Entity
+@Table(name = "outbox_events")
+public class OutboxEvent {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  @Column(name = "aggregate_id", nullable = false)
+  private String aggregateId;
+
+  @Column(name = "event_type", nullable = false)
+  private String eventType;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(nullable = false, columnDefinition = "jsonb")
+  private String payload;
+
+  @Column(name = "created_at", nullable = false)
+  private OffsetDateTime createdAt;
+
+  @Column(nullable = false)
+  private boolean published;
+
+  @Column(name = "published_at")
+  private OffsetDateTime publishedAt;
+
+  protected OutboxEvent() {
+    // required by JPA
+  }
+
+  public OutboxEvent(
+      String aggregateId, String eventType, String payload, OffsetDateTime createdAt) {
+    this.aggregateId = aggregateId;
+    this.eventType = eventType;
+    this.payload = payload;
+    this.createdAt = createdAt;
+    this.published = false;
+  }
+
+  /** Marks this event as published at the given instant. */
+  public void markPublished(OffsetDateTime at) {
+    this.published = true;
+    this.publishedAt = at;
+  }
+
+  public Long getId() {
+    return id;
+  }
+
+  public String getAggregateId() {
+    return aggregateId;
+  }
+
+  public String getEventType() {
+    return eventType;
+  }
+
+  public String getPayload() {
+    return payload;
+  }
+
+  public OffsetDateTime getCreatedAt() {
+    return createdAt;
+  }
+
+  public boolean isPublished() {
+    return published;
+  }
+
+  public OffsetDateTime getPublishedAt() {
+    return publishedAt;
+  }
+}

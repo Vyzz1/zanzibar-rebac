@@ -3,8 +3,22 @@ spring:
     name: tuple-store
   datasource:
     url: jdbc:postgresql://localhost:5432/zanzibar
-    username: postgres
-    password: secret
+    username: tuplestore_user
+    password: tuplestore_pass
+    hikari:
+      connection-init-sql: SET search_path TO tuplestore
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: tuplestore
+  flyway:
+    enabled: true
+    schemas: tuplestore
+    default-schema: tuplestore
+    locations: classpath:db/migration
+    table: flyway_schema_history
   rabbitmq:
     host: localhost
     port: 5672
