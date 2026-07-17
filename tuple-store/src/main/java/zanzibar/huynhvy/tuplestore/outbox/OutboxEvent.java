@@ -7,7 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,7 +19,9 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @Table(name = "outbox_events")
-@Getter @NoArgsConstructor @AllArgsConstructor
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class OutboxEvent {
 
   @Id
@@ -46,11 +47,20 @@ public class OutboxEvent {
   @Column(name = "published_at")
   private OffsetDateTime publishedAt;
 
+  /** Creates a new, unpublished event stamped with the current time. */
+  public static OutboxEvent create(String aggregateId, String eventType, String payload) {
+    OutboxEvent event = new OutboxEvent();
+    event.aggregateId = aggregateId;
+    event.eventType = eventType;
+    event.payload = payload;
+    event.createdAt = OffsetDateTime.now();
+    event.published = false;
+    return event;
+  }
 
   /** Marks this event as published at the given instant. */
   public void markPublished(OffsetDateTime at) {
     this.published = true;
     this.publishedAt = at;
   }
-
 }
