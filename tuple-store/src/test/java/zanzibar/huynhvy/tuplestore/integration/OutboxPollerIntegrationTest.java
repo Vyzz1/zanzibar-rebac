@@ -2,6 +2,7 @@ package zanzibar.huynhvy.tuplestore.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -23,6 +24,7 @@ class OutboxPollerIntegrationTest extends BaseIntegrationTest {
   @Autowired private OutboxRepository outboxRepository;
   @Autowired private RabbitTemplate rabbitTemplate;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private ObjectMapper objectMapper;
 
   @BeforeEach
   void clean() {
@@ -33,7 +35,7 @@ class OutboxPollerIntegrationTest extends BaseIntegrationTest {
   }
 
   @Test
-  void poll_publishes_unpublished_events_and_marks_them_published() {
+  void poll_publishes_unpublished_events_and_marks_them_published() throws Exception {
     outboxRepository.save(
         OutboxEvent.create("doc:report#viewer@user:bob", "TUPLE_CREATED", "{\"x\":1}"));
 
@@ -41,7 +43,8 @@ class OutboxPollerIntegrationTest extends BaseIntegrationTest {
 
     Object body =
         rabbitTemplate.receiveAndConvert(RabbitConfig.TUPLE_CHANGES_QUEUE, RECEIVE_TIMEOUT_MS);
-    assertThat(body).isEqualTo("{\"x\":1}");
+    // Compare as JSON: the jsonb column re-serializes the payload (e.g. adds a space after ':').
+    assertThat(objectMapper.readTree((String) body)).isEqualTo(objectMapper.readTree("{\"x\":1}"));
     assertThat(countUnpublished()).isZero();
   }
 
