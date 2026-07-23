@@ -12,4 +12,36 @@
     <groupId>zanzibar.huynhvy.shared</groupId>
     <artifactId>zanzibar-shared</artifactId>
     <packaging>jar</packaging>
+
+    <dependencies>
+        <!-- Needed to compile BaseIntegrationTest; exposed to consumers via the test-jar. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>rabbitmq</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Publishes src/test classes (BaseIntegrationTest) as a reusable test-jar. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
