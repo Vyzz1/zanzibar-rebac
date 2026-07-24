@@ -1,6 +1,9 @@
 spring:
   application:
     name: namespace-manager
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5432/zanzibar
     username: namespace_user
