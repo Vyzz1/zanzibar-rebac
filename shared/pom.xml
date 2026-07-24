@@ -14,6 +14,18 @@
     <packaging>jar</packaging>
 
     <dependencies>
+        <!-- Jackson annotations only: UsersetRewrite carries polymorphic type info. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+        <!-- Databind for the UsersetRewrite JSON round-trip test. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Needed to compile BaseIntegrationTest; exposed to consumers via the test-jar. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
