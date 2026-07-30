@@ -68,3 +68,21 @@ service AuthorizationService {
   rpc WriteTuples(WriteTuplesRequest) returns (WriteTuplesResponse);
   rpc Watch(WatchRequest) returns (stream WatchEvent);
 }
+
+message GetNamespaceConfigRequest {
+  string namespace = 1;
+}
+
+message GetNamespaceConfigResponse {
+  string namespace = 1;
+  int32 version = 2;
+  // The relations map (relation name -> UsersetRewrite) as JSON. Both sides share the
+  // Jackson-polymorphic UsersetRewrite model, so this stays a single source of truth.
+  string config_json = 3;
+}
+
+// Serves per-namespace userset rewrite config to the check path. Served by namespace-manager;
+// consumed by check-service's GraphTraverser.
+service NamespaceService {
+  rpc GetNamespaceConfig(GetNamespaceConfigRequest) returns (GetNamespaceConfigResponse);
+}
