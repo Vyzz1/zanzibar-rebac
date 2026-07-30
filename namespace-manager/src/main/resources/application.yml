@@ -25,3 +25,7 @@ spring:
 
 server:
   port: 8084
+
+grpc:
+  server:
+    port: 9094

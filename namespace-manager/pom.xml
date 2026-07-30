@@ -36,6 +36,10 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
+            <groupId>net.devh</groupId>
+            <artifactId>grpc-server-spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
@@ -61,6 +65,12 @@
             <!-- BaseIntegrationTest starts a RabbitMQ container even though namespace-manager ignores it. -->
             <groupId>org.testcontainers</groupId>
             <artifactId>rabbitmq</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- In-process gRPC server/channel for testing the NamespaceService without a real port. -->
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-inprocess</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
