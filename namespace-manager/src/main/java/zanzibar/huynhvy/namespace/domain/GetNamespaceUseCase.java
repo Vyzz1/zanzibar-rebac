@@ -35,6 +35,15 @@ public class GetNamespaceUseCase {
             .orElseThrow(() -> new NamespaceNotFoundException(namespace, version)));
   }
 
+  /** Latest config as raw JSON (no parse) for the gRPC path serving check-service. */
+  public RawNamespaceConfig getLatestRaw(String namespace) {
+    NamespaceConfig config =
+        repository
+            .findTopByNamespaceOrderByVersionDesc(namespace)
+            .orElseThrow(() -> new NamespaceNotFoundException(namespace));
+    return new RawNamespaceConfig(config.getNamespace(), config.getVersion(), config.getConfig());
+  }
+
   private NamespaceView toView(NamespaceConfig config) {
     return new NamespaceView(
         config.getNamespace(),

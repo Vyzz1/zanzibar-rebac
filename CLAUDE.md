@@ -137,7 +137,7 @@ java -jar services/check-service/target/check-service.jar
 | check-service | 8081 | 9091 |
 | tuple-store | 8082 | 9092 |
 | watch-service | 8083 | 9093 |
-| namespace-manager | 8084 | — |
+| namespace-manager | 8084 | 9094 |
 
 ### Test a gRPC endpoint
 ```bash
