@@ -19,6 +19,10 @@
     <properties>
         <java.version>21</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
+        <!-- Retain method parameter names in bytecode so Spring MVC can bind @PathVariable
+             without an explicit name. Spring Boot's parent sets this, but we import the BOM
+             instead of inheriting it. -->
+        <maven.compiler.parameters>true</maven.compiler.parameters>
         <spring-boot.version>3.5.1</spring-boot.version>
         <grpc.version>1.65.0</grpc.version>
         <testcontainers.version>1.21.3</testcontainers.version>
