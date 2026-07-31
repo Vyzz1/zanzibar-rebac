@@ -75,6 +75,11 @@
                 <version>${grpc-server-spring-boot-starter.version}</version>
             </dependency>
             <dependency>
+                <groupId>net.devh</groupId>
+                <artifactId>grpc-client-spring-boot-starter</artifactId>
+                <version>${grpc-server-spring-boot-starter.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>javax.annotation</groupId>
                 <artifactId>javax.annotation-api</artifactId>
                 <version>${javax.annotation-api.version}</version>
