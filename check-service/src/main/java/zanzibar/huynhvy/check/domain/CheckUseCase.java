@@ -3,7 +3,6 @@ package zanzibar.huynhvy.check.domain;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import zanzibar.huynhvy.check.repository.TupleReadRepository;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.domain.Zookie;
 import zanzibar.huynhvy.shared.security.ZookieValidator;
@@ -13,13 +12,14 @@ import zanzibar.huynhvy.shared.security.ZookieValidator;
 @RequiredArgsConstructor
 public class CheckUseCase {
 
-  private final TupleReadRepository tupleReadRepository;
+  private final GraphTraverser graphTraverser;
+  private final NamespaceConfigProvider namespaceConfigProvider;
   private final ZookieValidator zookieValidator;
 
   /**
-   * Direct-lookup check: is there a stored tuple granting {@code subject} the {@code relation} on
-   * the object? Recursive userset rewrites (editor→viewer, group membership, …) are not evaluated
-   * yet.
+   * Answers "does {@code subject} have {@code relation} on {@code object}?" by evaluating the
+   * relation's userset rewrite (direct tuples plus any derived relations) via {@link
+   * GraphTraverser}.
    *
    * @param zookie optional consistency token; if present it must carry a valid HMAC
    */
@@ -29,8 +29,12 @@ public class CheckUseCase {
     }
 
     boolean allowed =
-        tupleReadRepository.existsByNamespaceAndObjectIdAndRelationAndSubjectId(
-            tuple.namespace(), tuple.objectId(), tuple.relation(), tuple.subjectId());
+        graphTraverser.evaluate(
+            tuple.namespace(),
+            tuple.objectId(),
+            tuple.relation(),
+            tuple.subjectId(),
+            namespaceConfigProvider::get);
     log.debug("Check {} -> {}", tuple, allowed);
     return allowed;
   }

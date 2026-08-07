@@ -3,7 +3,7 @@ package zanzibar.huynhvy.check.unit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -15,7 +15,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import zanzibar.huynhvy.check.domain.CheckUseCase;
-import zanzibar.huynhvy.check.repository.TupleReadRepository;
+import zanzibar.huynhvy.check.domain.GraphTraverser;
+import zanzibar.huynhvy.check.domain.NamespaceConfigProvider;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.domain.Zookie;
 import zanzibar.huynhvy.shared.security.ZookieValidator;
@@ -26,27 +27,28 @@ class CheckUseCaseTest {
   private static final RelationTuple TUPLE =
       new RelationTuple("doc", "report.pdf", "viewer", "user:bob");
 
-  @Mock private TupleReadRepository tupleReadRepository;
+  @Mock private GraphTraverser graphTraverser;
+  @Mock private NamespaceConfigProvider namespaceConfigProvider;
   @Mock private ZookieValidator zookieValidator;
   @InjectMocks private CheckUseCase checkUseCase;
 
   @Test
-  void allows_when_a_matching_tuple_exists() {
-    when(existsQuery()).thenReturn(true);
+  void allows_when_the_traverser_grants_the_relation() {
+    when(evaluate()).thenReturn(true);
 
     assertThat(checkUseCase.check(TUPLE, null)).isTrue();
   }
 
   @Test
-  void denies_when_no_matching_tuple_exists() {
-    when(existsQuery()).thenReturn(false);
+  void denies_when_the_traverser_refuses() {
+    when(evaluate()).thenReturn(false);
 
     assertThat(checkUseCase.check(TUPLE, null)).isFalse();
   }
 
   @Test
   void skips_validation_when_zookie_is_blank() {
-    when(existsQuery()).thenReturn(true);
+    when(evaluate()).thenReturn(true);
 
     checkUseCase.check(TUPLE, "");
 
@@ -54,27 +56,25 @@ class CheckUseCaseTest {
   }
 
   @Test
-  void validates_a_present_zookie_before_looking_up() {
+  void validates_a_present_zookie_before_evaluating() {
     when(zookieValidator.validate(new Zookie("zk"))).thenReturn(true);
-    when(existsQuery()).thenReturn(true);
+    when(evaluate()).thenReturn(true);
 
     assertThat(checkUseCase.check(TUPLE, "zk")).isTrue();
     verify(zookieValidator).validate(new Zookie("zk"));
   }
 
   @Test
-  void rejects_an_invalid_zookie_without_hitting_the_database() {
+  void rejects_an_invalid_zookie_without_evaluating() {
     when(zookieValidator.validate(new Zookie("bad"))).thenReturn(false);
 
     assertThatThrownBy(() -> checkUseCase.check(TUPLE, "bad"))
         .isInstanceOf(IllegalArgumentException.class);
-    verify(tupleReadRepository, never())
-        .existsByNamespaceAndObjectIdAndRelationAndSubjectId(
-            anyString(), anyString(), anyString(), anyString());
+    verify(graphTraverser, never()).evaluate(any(), any(), any(), any(), any());
   }
 
-  private Boolean existsQuery() {
-    return tupleReadRepository.existsByNamespaceAndObjectIdAndRelationAndSubjectId(
-        any(), any(), any(), any());
+  private boolean evaluate() {
+    return graphTraverser.evaluate(
+        eq("doc"), eq("report.pdf"), eq("viewer"), eq("user:bob"), any());
   }
 }
