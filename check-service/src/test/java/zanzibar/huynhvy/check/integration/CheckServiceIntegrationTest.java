@@ -2,23 +2,40 @@ package zanzibar.huynhvy.check.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 
+import io.grpc.Status;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import zanzibar.huynhvy.check.client.NamespaceConfigClient;
 import zanzibar.huynhvy.check.domain.CheckUseCase;
+import zanzibar.huynhvy.check.domain.NamespaceConfigView;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
+import zanzibar.huynhvy.shared.domain.UsersetRewrite.ComputedUserset;
+import zanzibar.huynhvy.shared.domain.UsersetRewrite.This;
+import zanzibar.huynhvy.shared.domain.UsersetRewrite.TupleToUserset;
+import zanzibar.huynhvy.shared.domain.UsersetRewrite.Union;
 import zanzibar.huynhvy.shared.testing.BaseIntegrationTest;
 
 /**
  * End-to-end check against a real Postgres. check-service's Flyway is off (tuple-store owns the
- * table), so we disable Hibernate validation and provision {@code relation_tuples} here.
+ * table), so we disable Hibernate validation and provision {@code relation_tuples} here. The gRPC
+ * config client is mocked so config is fixed per test; the cache TTL is 0 so each check re-reads
+ * it. A namespace with no stubbed config resolves to {@code NOT_FOUND} → empty config → direct
+ * lookup.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=none")
+@TestPropertySource(
+    properties = {"spring.jpa.hibernate.ddl-auto=none", "namespace.config.cache-ttl-seconds=0"})
 class CheckServiceIntegrationTest extends BaseIntegrationTest {
 
   private static final RelationTuple BOB_VIEWER =
@@ -26,9 +43,13 @@ class CheckServiceIntegrationTest extends BaseIntegrationTest {
 
   @Autowired private CheckUseCase checkUseCase;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @MockitoBean private NamespaceConfigClient namespaceConfigClient;
 
   @BeforeEach
-  void provisionSchema() {
+  void setUp() {
+    // Every namespace has no config unless a test says otherwise → direct lookup only.
+    doThrow(Status.NOT_FOUND.asRuntimeException()).when(namespaceConfigClient).fetch(anyString());
+
     jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS tuplestore");
     jdbcTemplate.execute(
         """
@@ -64,6 +85,38 @@ class CheckServiceIntegrationTest extends BaseIntegrationTest {
   void rejects_a_tampered_zookie_before_looking_up() {
     assertThatThrownBy(() -> checkUseCase.check(BOB_VIEWER, "not-a-valid-zookie"))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void allows_an_editor_as_a_viewer_via_computed_userset() {
+    // viewer = union(this, computedUserset(editor)); bob is only an editor.
+    doReturn(
+            new NamespaceConfigView(
+                1, Map.of("viewer", new Union(List.of(new This(), new ComputedUserset("editor"))))))
+        .when(namespaceConfigClient)
+        .fetch("doc-computed");
+    seed(new RelationTuple("doc-computed", "report.pdf", "editor", "user:bob"));
+
+    assertThat(
+            checkUseCase.check(
+                new RelationTuple("doc-computed", "report.pdf", "viewer", "user:bob"), null))
+        .isTrue();
+  }
+
+  @Test
+  void allows_a_viewer_of_the_parent_folder_via_tuple_to_userset() {
+    // doc viewer = viewers of the parent folder; the folder namespace has no config → direct
+    // lookup.
+    doReturn(new NamespaceConfigView(1, Map.of("viewer", new TupleToUserset("parent", "viewer"))))
+        .when(namespaceConfigClient)
+        .fetch("doc-ttu");
+    seed(new RelationTuple("doc-ttu", "report.pdf", "parent", "folder:root"));
+    seed(new RelationTuple("folder", "root", "viewer", "user:bob"));
+
+    assertThat(
+            checkUseCase.check(
+                new RelationTuple("doc-ttu", "report.pdf", "viewer", "user:bob"), null))
+        .isTrue();
   }
 
   private void seed(RelationTuple tuple) {
