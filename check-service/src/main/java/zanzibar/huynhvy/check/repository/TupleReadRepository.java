@@ -1,6 +1,7 @@
 package zanzibar.huynhvy.check.repository;
 
 import java.util.List;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -18,4 +19,17 @@ public interface TupleReadRepository extends JpaRepository<RelationTupleEntity, 
           + " where t.namespace = ?1 and t.objectId = ?2 and t.relation = ?3")
   List<String> findSubjectIdsByNamespaceAndObjectIdAndRelation(
       String namespace, String objectId, String relation);
+
+  /**
+   * Lists stored tuples in a namespace, narrowed by any of the optional filters (a {@code null}
+   * filter matches anything). Used by the Read API; capped by {@code limit}.
+   */
+  @Query(
+      "select t from RelationTupleEntity t where t.namespace = :namespace"
+          + " and (:objectId is null or t.objectId = :objectId)"
+          + " and (:relation is null or t.relation = :relation)"
+          + " and (:subjectId is null or t.subjectId = :subjectId)"
+          + " order by t.id")
+  List<RelationTupleEntity> findByFilter(
+      String namespace, String objectId, String relation, String subjectId, Limit limit);
 }
