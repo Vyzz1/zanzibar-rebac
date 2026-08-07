@@ -36,6 +36,21 @@ message BatchCheckResponse {
   repeated CheckResponse results = 1;
 }
 
+// Lists stored tuples matching a filter. Raw tuples only — no userset rewrite evaluation
+// (that is Check's job). namespace is required; the other fields narrow the match (empty = any).
+message ReadTuplesRequest {
+  string namespace = 1;
+  string object_id = 2;
+  string relation = 3;
+  string subject_id = 4;
+  // 0 => server default; capped server-side. Pagination (page_token) is not yet supported.
+  int32 page_size = 5;
+}
+
+message ReadTuplesResponse {
+  repeated RelationTuple tuples = 1;
+}
+
 message WriteTuplesRequest {
   repeated RelationTuple tuples = 1;
 }
@@ -65,6 +80,7 @@ message WatchEvent {
 service AuthorizationService {
   rpc Check(CheckRequest) returns (CheckResponse);
   rpc BatchCheck(BatchCheckRequest) returns (BatchCheckResponse);
+  rpc ReadTuples(ReadTuplesRequest) returns (ReadTuplesResponse);
   rpc WriteTuples(WriteTuplesRequest) returns (WriteTuplesResponse);
   rpc Watch(WatchRequest) returns (stream WatchEvent);
 }
