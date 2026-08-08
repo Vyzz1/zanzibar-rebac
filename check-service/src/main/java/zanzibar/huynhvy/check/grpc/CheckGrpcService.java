@@ -1,5 +1,7 @@
 package zanzibar.huynhvy.check.grpc;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
@@ -7,11 +9,15 @@ import net.devh.boot.grpc.server.service.GrpcService;
 import zanzibar.huynhvy.api.AuthorizationServiceGrpc;
 import zanzibar.huynhvy.api.CheckRequest;
 import zanzibar.huynhvy.api.CheckResponse;
+import zanzibar.huynhvy.api.ExpandRequest;
+import zanzibar.huynhvy.api.ExpandResponse;
 import zanzibar.huynhvy.api.ReadTuplesRequest;
 import zanzibar.huynhvy.api.ReadTuplesResponse;
 import zanzibar.huynhvy.check.domain.CheckUseCase;
+import zanzibar.huynhvy.check.domain.ExpandUseCase;
 import zanzibar.huynhvy.check.domain.ReadTuplesResult;
 import zanzibar.huynhvy.check.domain.ReadTuplesUseCase;
+import zanzibar.huynhvy.shared.domain.ExpandTree;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 
 @GrpcService
@@ -20,6 +26,8 @@ public class CheckGrpcService extends AuthorizationServiceGrpc.AuthorizationServ
 
   private final CheckUseCase checkUseCase;
   private final ReadTuplesUseCase readTuplesUseCase;
+  private final ExpandUseCase expandUseCase;
+  private final ObjectMapper objectMapper;
 
   @Override
   public void check(CheckRequest request, StreamObserver<CheckResponse> responseObserver) {
@@ -58,6 +66,29 @@ public class CheckGrpcService extends AuthorizationServiceGrpc.AuthorizationServ
     } catch (IllegalArgumentException e) {
       responseObserver.onError(
           Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+    }
+  }
+
+  @Override
+  public void expand(ExpandRequest request, StreamObserver<ExpandResponse> responseObserver) {
+    try {
+      ExpandTree tree =
+          expandUseCase.expand(
+              request.getNamespace(), request.getObjectId(), request.getRelation());
+      responseObserver.onNext(
+          ExpandResponse.newBuilder()
+              .setNamespace(request.getNamespace())
+              .setObjectId(request.getObjectId())
+              .setRelation(request.getRelation())
+              .setTreeJson(objectMapper.writeValueAsString(tree))
+              .build());
+      responseObserver.onCompleted();
+    } catch (IllegalArgumentException e) {
+      responseObserver.onError(
+          Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+    } catch (JsonProcessingException e) {
+      responseObserver.onError(
+          Status.INTERNAL.withDescription("Failed to serialize expand tree").asRuntimeException());
     }
   }
 

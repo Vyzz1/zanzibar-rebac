@@ -81,10 +81,28 @@ message WatchEvent {
   string zookie = 3;
 }
 
+// Expands the effective userset tree for object#relation (admin/debug — never on the check hot
+// path). Unlike Check it takes no subject and returns the whole set structure.
+message ExpandRequest {
+  string namespace = 1;
+  string object_id = 2;
+  string relation = 3;
+}
+
+message ExpandResponse {
+  string namespace = 1;
+  string object_id = 2;
+  string relation = 3;
+  // The userset tree (leaf/union/intersection/exclusion) as JSON. Both sides share the
+  // Jackson-polymorphic ExpandTree model, keeping a single source of truth.
+  string tree_json = 4;
+}
+
 service AuthorizationService {
   rpc Check(CheckRequest) returns (CheckResponse);
   rpc BatchCheck(BatchCheckRequest) returns (BatchCheckResponse);
   rpc ReadTuples(ReadTuplesRequest) returns (ReadTuplesResponse);
+  rpc Expand(ExpandRequest) returns (ExpandResponse);
   rpc WriteTuples(WriteTuplesRequest) returns (WriteTuplesResponse);
   rpc Watch(WatchRequest) returns (stream WatchEvent);
 }
