@@ -40,7 +40,13 @@ public interface TupleReadRepository extends JpaRepository<RelationTupleEntity, 
           + " and (:objectId is null or t.objectId = :objectId)"
           + " and (:relation is null or t.relation = :relation)"
           + " and (:subjectId is null or t.subjectId = :subjectId)"
+          + " and (:afterId is null or t.id > :afterId)"
           + " order by t.id")
   List<RelationTupleEntity> findByFilter(
-      String namespace, String objectId, String relation, String subjectId, Limit limit);
+      String namespace,
+      String objectId,
+      String relation,
+      String subjectId,
+      Long afterId,
+      Limit limit);
 }
