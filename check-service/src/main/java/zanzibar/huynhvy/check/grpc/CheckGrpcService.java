@@ -10,6 +10,7 @@ import zanzibar.huynhvy.api.CheckResponse;
 import zanzibar.huynhvy.api.ReadTuplesRequest;
 import zanzibar.huynhvy.api.ReadTuplesResponse;
 import zanzibar.huynhvy.check.domain.CheckUseCase;
+import zanzibar.huynhvy.check.domain.ReadTuplesResult;
 import zanzibar.huynhvy.check.domain.ReadTuplesUseCase;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 
@@ -39,15 +40,18 @@ public class CheckGrpcService extends AuthorizationServiceGrpc.AuthorizationServ
   public void readTuples(
       ReadTuplesRequest request, StreamObserver<ReadTuplesResponse> responseObserver) {
     try {
-      ReadTuplesResponse.Builder response = ReadTuplesResponse.newBuilder();
-      readTuplesUseCase
-          .read(
+      ReadTuplesResult result =
+          readTuplesUseCase.read(
               request.getNamespace(),
               request.getObjectId(),
               request.getRelation(),
               request.getSubjectId(),
-              request.getPageSize())
-          .forEach(tuple -> response.addTuples(toProto(tuple)));
+              request.getPageSize(),
+              request.getPageToken());
+
+      ReadTuplesResponse.Builder response =
+          ReadTuplesResponse.newBuilder().setNextPageToken(result.nextPageToken());
+      result.tuples().forEach(tuple -> response.addTuples(toProto(tuple)));
 
       responseObserver.onNext(response.build());
       responseObserver.onCompleted();

@@ -43,12 +43,16 @@ message ReadTuplesRequest {
   string object_id = 2;
   string relation = 3;
   string subject_id = 4;
-  // 0 => server default; capped server-side. Pagination (page_token) is not yet supported.
+  // 0 => server default; capped server-side.
   int32 page_size = 5;
+  // Opaque cursor from a previous response's next_page_token; empty starts at the beginning.
+  string page_token = 6;
 }
 
 message ReadTuplesResponse {
   repeated RelationTuple tuples = 1;
+  // Opaque cursor to fetch the next page; empty when there are no more results.
+  string next_page_token = 2;
 }
 
 message WriteTuplesRequest {
