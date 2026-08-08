@@ -72,9 +72,7 @@ public class GraphTraverser {
       Function<String, NamespaceConfigView> configs,
       Set<String> path) {
     return switch (rewrite) {
-      case This ignored ->
-          tuples.existsByNamespaceAndObjectIdAndRelationAndSubjectId(
-              namespace, objectId, relation, subjectId);
+      case This ignored -> evaluateThis(namespace, objectId, relation, subjectId, configs, path);
       case ComputedUserset cu ->
           evaluateRelation(namespace, objectId, cu.relation(), subjectId, configs, path);
       case TupleToUserset ttu ->
@@ -96,6 +94,39 @@ public class GraphTraverser {
               && !evaluateRewrite(
                   e.subtract(), namespace, objectId, relation, subjectId, configs, path);
     };
+  }
+
+  /**
+   * Direct tuple lookup, plus userset-subject expansion: the relation may be granted to a userset
+   * (e.g. {@code group:eng#member}) rather than the subject directly, so each such grant is
+   * expanded and the subject is checked against it recursively.
+   */
+  private boolean evaluateThis(
+      String namespace,
+      String objectId,
+      String relation,
+      String subjectId,
+      Function<String, NamespaceConfigView> configs,
+      Set<String> path) {
+    if (tuples.existsByNamespaceAndObjectIdAndRelationAndSubjectId(
+        namespace, objectId, relation, subjectId)) {
+      return true;
+    }
+    for (String userset : tuples.findUsersetSubjectIds(namespace, objectId, relation)) {
+      // "type:id#relation" — e.g. group:eng#member
+      int colon = userset.indexOf(':');
+      int hash = userset.indexOf('#');
+      if (colon <= 0 || hash <= 0 || colon >= hash) {
+        continue; // not a well-formed userset reference
+      }
+      String usNamespace = userset.substring(0, colon);
+      String usObjectId = userset.substring(colon + 1, hash);
+      String usRelation = userset.substring(hash + 1);
+      if (evaluateRelation(usNamespace, usObjectId, usRelation, subjectId, configs, path)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean evaluateTupleToUserset(

@@ -110,6 +110,37 @@ class GraphTraverserTest {
         .isInstanceOf(CyclicRelationException.class);
   }
 
+  @Test
+  void expands_a_userset_subject_so_a_group_member_is_granted() {
+    // report#viewer@group:eng#member ; group:eng#member@user:bob (bob is granted indirectly).
+    when(tuples.findUsersetSubjectIds("doc", "report", "viewer"))
+        .thenReturn(List.of("group:eng#member"));
+    directTuple("group", "eng", "member", BOB);
+
+    assertThat(check("doc", "report", "viewer", BOB, noConfig())).isTrue();
+  }
+
+  @Test
+  void denies_when_the_subject_is_not_in_the_granted_userset() {
+    // report#viewer@group:eng#member, but bob is not a member of group:eng.
+    when(tuples.findUsersetSubjectIds("doc", "report", "viewer"))
+        .thenReturn(List.of("group:eng#member"));
+
+    assertThat(check("doc", "report", "viewer", BOB, noConfig())).isFalse();
+  }
+
+  @Test
+  void expands_nested_group_memberships() {
+    // viewer -> group:eng#member -> group:leads#member -> user:bob
+    when(tuples.findUsersetSubjectIds("doc", "report", "viewer"))
+        .thenReturn(List.of("group:eng#member"));
+    when(tuples.findUsersetSubjectIds("group", "eng", "member"))
+        .thenReturn(List.of("group:leads#member"));
+    directTuple("group", "leads", "member", BOB);
+
+    assertThat(check("doc", "report", "viewer", BOB, noConfig())).isTrue();
+  }
+
   private boolean check(
       String namespace,
       String objectId,

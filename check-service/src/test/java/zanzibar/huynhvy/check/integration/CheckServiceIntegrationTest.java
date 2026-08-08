@@ -119,6 +119,30 @@ class CheckServiceIntegrationTest extends BaseIntegrationTest {
         .isTrue();
   }
 
+  @Test
+  void allows_a_group_member_via_userset_subject_expansion() {
+    // report#viewer is granted to the group's members; bob is a member → bob is a viewer.
+    // Neither namespace is configured, so viewer/member both default to This.
+    seed(new RelationTuple("doc-grp", "report.pdf", "viewer", "group:eng#member"));
+    seed(new RelationTuple("group", "eng", "member", "user:bob"));
+
+    assertThat(
+            checkUseCase.check(
+                new RelationTuple("doc-grp", "report.pdf", "viewer", "user:bob"), null))
+        .isTrue();
+  }
+
+  @Test
+  void denies_a_non_member_despite_the_group_grant() {
+    seed(new RelationTuple("doc-grp", "report.pdf", "viewer", "group:eng#member"));
+    seed(new RelationTuple("group", "eng", "member", "user:bob"));
+
+    assertThat(
+            checkUseCase.check(
+                new RelationTuple("doc-grp", "report.pdf", "viewer", "user:carol"), null))
+        .isFalse();
+  }
+
   private void seed(RelationTuple tuple) {
     jdbcTemplate.update(
         "INSERT INTO tuplestore.relation_tuples(namespace, object_id, relation, subject_id)"
