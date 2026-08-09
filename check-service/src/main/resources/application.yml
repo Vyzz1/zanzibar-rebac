@@ -41,3 +41,9 @@ management:
 # Must match tuple-store's ZOOKIE_SECRET so Zookies minted there validate here.
 zookie:
   secret: ${ZOOKIE_SECRET:dev-only-secret-change-me}
+
+# Redis-backed Check cache. A Zookie gates freshness; without one, any cached result is served.
+check:
+  cache:
+    enabled: true
+    ttl-seconds: 60

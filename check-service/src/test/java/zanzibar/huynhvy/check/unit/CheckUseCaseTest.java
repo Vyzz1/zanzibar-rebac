@@ -3,78 +3,149 @@ package zanzibar.huynhvy.check.unit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
+import java.util.Optional;
+import java.util.OptionalLong;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import zanzibar.huynhvy.check.cache.CacheKeyStrategy;
+import zanzibar.huynhvy.check.cache.CachedCheck;
+import zanzibar.huynhvy.check.cache.TupleCache;
 import zanzibar.huynhvy.check.domain.CheckUseCase;
 import zanzibar.huynhvy.check.domain.GraphTraverser;
 import zanzibar.huynhvy.check.domain.NamespaceConfigProvider;
+import zanzibar.huynhvy.check.domain.SnapshotClock;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
-import zanzibar.huynhvy.shared.domain.Zookie;
 import zanzibar.huynhvy.shared.security.ZookieValidator;
 
-@ExtendWith(MockitoExtension.class)
 class CheckUseCaseTest {
 
   private static final RelationTuple TUPLE =
       new RelationTuple("doc", "report.pdf", "viewer", "user:bob");
+  private static final String KEY = "doc:report.pdf:viewer:user:bob";
 
-  @Mock private GraphTraverser graphTraverser;
-  @Mock private NamespaceConfigProvider namespaceConfigProvider;
-  @Mock private ZookieValidator zookieValidator;
-  @InjectMocks private CheckUseCase checkUseCase;
+  private GraphTraverser graphTraverser;
+  private ZookieValidator zookieValidator;
+  private TupleCache tupleCache;
+  private CacheKeyStrategy cacheKeyStrategy;
+  private SnapshotClock snapshotClock;
 
-  @Test
-  void allows_when_the_traverser_grants_the_relation() {
-    when(evaluate()).thenReturn(true);
+  @BeforeEach
+  void setUp() {
+    graphTraverser = mock(GraphTraverser.class);
+    zookieValidator = mock(ZookieValidator.class);
+    tupleCache = mock(TupleCache.class);
+    cacheKeyStrategy = mock(CacheKeyStrategy.class);
+    snapshotClock = mock(SnapshotClock.class);
+  }
 
-    assertThat(checkUseCase.check(TUPLE, null)).isTrue();
+  private CheckUseCase useCase(boolean cacheEnabled) {
+    return new CheckUseCase(
+        graphTraverser,
+        mock(NamespaceConfigProvider.class),
+        zookieValidator,
+        tupleCache,
+        cacheKeyStrategy,
+        snapshotClock,
+        cacheEnabled,
+        60);
+  }
+
+  private void keyIs(String key) {
+    when(cacheKeyStrategy.key(any())).thenReturn(key);
+  }
+
+  private void traverserReturns(boolean allowed) {
+    when(graphTraverser.evaluate(eq("doc"), eq("report.pdf"), eq("viewer"), eq("user:bob"), any()))
+        .thenReturn(allowed);
   }
 
   @Test
-  void denies_when_the_traverser_refuses() {
-    when(evaluate()).thenReturn(false);
+  void a_miss_evaluates_and_caches_the_result() {
+    keyIs(KEY);
+    when(tupleCache.get(KEY)).thenReturn(Optional.empty());
+    when(snapshotClock.nowNanos()).thenReturn(500L);
+    traverserReturns(true);
 
-    assertThat(checkUseCase.check(TUPLE, null)).isFalse();
+    assertThat(useCase(true).check(TUPLE, null)).isTrue();
+
+    verify(tupleCache).put(KEY, true, 500L, Duration.ofSeconds(60));
   }
 
   @Test
-  void skips_validation_when_zookie_is_blank() {
-    when(evaluate()).thenReturn(true);
+  void a_cache_hit_without_a_zookie_is_served_without_evaluating() {
+    keyIs(KEY);
+    when(tupleCache.get(KEY)).thenReturn(Optional.of(new CachedCheck(true, 100L)));
 
-    checkUseCase.check(TUPLE, "");
+    assertThat(useCase(true).check(TUPLE, null)).isTrue();
+
+    verify(graphTraverser, never()).evaluate(any(), any(), any(), any(), any());
+    verify(tupleCache, never()).put(any(), anyBoolean(), anyLong(), any());
+  }
+
+  @Test
+  void a_zookie_serves_the_cache_only_when_the_snapshot_is_fresh_enough() {
+    keyIs(KEY);
+    when(tupleCache.get(KEY)).thenReturn(Optional.of(new CachedCheck(true, 100L)));
+    when(zookieValidator.readTimestampNanos(any())).thenReturn(OptionalLong.of(50L)); // 100 >= 50
+
+    assertThat(useCase(true).check(TUPLE, "zk")).isTrue();
+
+    verify(graphTraverser, never()).evaluate(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void a_zookie_newer_than_the_snapshot_bypasses_the_stale_cache() {
+    keyIs(KEY);
+    when(tupleCache.get(KEY)).thenReturn(Optional.of(new CachedCheck(true, 100L)));
+    when(snapshotClock.nowNanos()).thenReturn(500L);
+    when(zookieValidator.readTimestampNanos(any())).thenReturn(OptionalLong.of(200L)); // 100 < 200
+    traverserReturns(false);
+
+    assertThat(useCase(true).check(TUPLE, "zk")).isFalse();
+
+    verify(graphTraverser)
+        .evaluate(eq("doc"), eq("report.pdf"), eq("viewer"), eq("user:bob"), any());
+    verify(tupleCache).put(KEY, false, 500L, Duration.ofSeconds(60));
+  }
+
+  @Test
+  void an_invalid_zookie_is_rejected_without_touching_the_cache_or_evaluating() {
+    when(zookieValidator.readTimestampNanos(any())).thenReturn(OptionalLong.empty());
+
+    assertThatThrownBy(() -> useCase(true).check(TUPLE, "bad"))
+        .isInstanceOf(IllegalArgumentException.class);
+
+    verifyNoInteractions(tupleCache, graphTraverser);
+  }
+
+  @Test
+  void a_blank_zookie_skips_validation() {
+    keyIs(KEY);
+    when(tupleCache.get(KEY)).thenReturn(Optional.empty());
+    when(snapshotClock.nowNanos()).thenReturn(500L);
+    traverserReturns(true);
+
+    useCase(true).check(TUPLE, "");
 
     verifyNoInteractions(zookieValidator);
   }
 
   @Test
-  void validates_a_present_zookie_before_evaluating() {
-    when(zookieValidator.validate(new Zookie("zk"))).thenReturn(true);
-    when(evaluate()).thenReturn(true);
+  void a_disabled_cache_always_evaluates_and_never_caches() {
+    traverserReturns(true);
 
-    assertThat(checkUseCase.check(TUPLE, "zk")).isTrue();
-    verify(zookieValidator).validate(new Zookie("zk"));
-  }
+    assertThat(useCase(false).check(TUPLE, null)).isTrue();
 
-  @Test
-  void rejects_an_invalid_zookie_without_evaluating() {
-    when(zookieValidator.validate(new Zookie("bad"))).thenReturn(false);
-
-    assertThatThrownBy(() -> checkUseCase.check(TUPLE, "bad"))
-        .isInstanceOf(IllegalArgumentException.class);
-    verify(graphTraverser, never()).evaluate(any(), any(), any(), any(), any());
-  }
-
-  private boolean evaluate() {
-    return graphTraverser.evaluate(
-        eq("doc"), eq("report.pdf"), eq("viewer"), eq("user:bob"), any());
+    verifyNoInteractions(tupleCache, cacheKeyStrategy, snapshotClock);
   }
 }

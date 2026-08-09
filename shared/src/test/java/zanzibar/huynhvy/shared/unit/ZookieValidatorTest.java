@@ -43,6 +43,19 @@ class ZookieValidatorTest {
   }
 
   @Test
+  void reads_the_timestamp_from_a_valid_token() {
+    assertThat(validator.readTimestampNanos(new Zookie(mint(SECRET, (byte) 1, COMMIT_NANOS))))
+        .hasValue(COMMIT_NANOS);
+  }
+
+  @Test
+  void reads_no_timestamp_from_a_tampered_token() {
+    assertThat(
+            validator.readTimestampNanos(new Zookie(mint("other-secret", (byte) 1, COMMIT_NANOS))))
+        .isEmpty();
+  }
+
+  @Test
   void rejects_garbage_and_blank_tokens() {
     assertThat(validator.validate(new Zookie("not base64 !!!"))).isFalse();
     assertThat(validator.validate(new Zookie(""))).isFalse();

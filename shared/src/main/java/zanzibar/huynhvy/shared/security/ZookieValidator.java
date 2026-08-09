@@ -1,11 +1,13 @@
 package zanzibar.huynhvy.shared.security;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.OptionalLong;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +54,18 @@ public class ZookieValidator {
     byte[] payload = Arrays.copyOfRange(raw, 0, PAYLOAD_LENGTH);
     byte[] signature = Arrays.copyOfRange(raw, PAYLOAD_LENGTH, TOKEN_LENGTH);
     return MessageDigest.isEqual(sign(payload), signature); // constant-time comparison
+  }
+
+  /**
+   * The commit timestamp (epoch nanos) carried by a valid Zookie, or empty if the token is
+   * malformed or its HMAC does not match. Callers use it as a freshness lower bound.
+   */
+  public OptionalLong readTimestampNanos(Zookie zookie) {
+    if (!validate(zookie)) {
+      return OptionalLong.empty();
+    }
+    byte[] raw = Base64.getUrlDecoder().decode(zookie.token());
+    return OptionalLong.of(ByteBuffer.wrap(raw, Byte.BYTES, Long.BYTES).getLong());
   }
 
   private byte[] sign(byte[] data) {

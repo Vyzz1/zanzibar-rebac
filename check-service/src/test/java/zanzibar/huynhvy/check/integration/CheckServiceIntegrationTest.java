@@ -35,7 +35,11 @@ import zanzibar.huynhvy.shared.testing.BaseIntegrationTest;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestPropertySource(
-    properties = {"spring.jpa.hibernate.ddl-auto=none", "namespace.config.cache-ttl-seconds=0"})
+    properties = {
+      "spring.jpa.hibernate.ddl-auto=none",
+      "namespace.config.cache-ttl-seconds=0",
+      "check.cache.enabled=false"
+    })
 class CheckServiceIntegrationTest extends BaseIntegrationTest {
 
   private static final RelationTuple BOB_VIEWER =
