@@ -1,5 +1,6 @@
 package zanzibar.huynhvy.tuplestore.grpc;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +29,13 @@ public class TupleStoreGrpcService extends AuthorizationServiceGrpc.Authorizatio
                         t.getNamespace(), t.getObjectId(), t.getRelation(), t.getSubjectId()))
             .toList();
 
-    Zookie zookie = writeTuplesUseCase.execute(tuples);
-
-    responseObserver.onNext(WriteTuplesResponse.newBuilder().setZookie(zookie.token()).build());
-    responseObserver.onCompleted();
+    try {
+      Zookie zookie = writeTuplesUseCase.execute(tuples);
+      responseObserver.onNext(WriteTuplesResponse.newBuilder().setZookie(zookie.token()).build());
+      responseObserver.onCompleted();
+    } catch (IllegalArgumentException e) {
+      responseObserver.onError(
+          Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+    }
   }
 }
