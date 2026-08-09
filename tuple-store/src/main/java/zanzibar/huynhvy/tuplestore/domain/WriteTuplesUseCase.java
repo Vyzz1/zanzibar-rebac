@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
@@ -16,7 +16,6 @@ import zanzibar.huynhvy.tuplestore.repository.TupleWriteRepository;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class WriteTuplesUseCase {
 
   private static final String EVENT_TYPE = "TUPLE_CREATED";
@@ -25,6 +24,23 @@ public class WriteTuplesUseCase {
   private final OutboxRepository outboxRepository;
   private final ZookieMinter zookieMinter;
   private final ObjectMapper objectMapper;
+  private final NamespaceRelationsProvider relationsProvider;
+  private final boolean validationEnabled;
+
+  public WriteTuplesUseCase(
+      TupleWriteRepository tupleWriteRepository,
+      OutboxRepository outboxRepository,
+      ZookieMinter zookieMinter,
+      ObjectMapper objectMapper,
+      NamespaceRelationsProvider relationsProvider,
+      @Value("${tuple.validation.enabled:true}") boolean validationEnabled) {
+    this.tupleWriteRepository = tupleWriteRepository;
+    this.outboxRepository = outboxRepository;
+    this.zookieMinter = zookieMinter;
+    this.objectMapper = objectMapper;
+    this.relationsProvider = relationsProvider;
+    this.validationEnabled = validationEnabled;
+  }
 
   /**
    * Writes each tuple and, in the same transaction, enqueues an outbox event so the change is never
@@ -36,6 +52,9 @@ public class WriteTuplesUseCase {
       throw new IllegalArgumentException("Tuples must not be empty");
     }
     tuples.forEach(this::validateTuple);
+    if (validationEnabled) {
+      tuples.forEach(this::validateRelationDefined);
+    }
 
     OffsetDateTime commitTimestamp = null;
     for (RelationTuple tuple : tuples) {
@@ -54,6 +73,26 @@ public class WriteTuplesUseCase {
         || isBlank(tuple.subjectId())) {
       throw new IllegalArgumentException("Tuple fields must not be empty: " + tuple);
     }
+  }
+
+  /**
+   * Rejects a tuple whose relation is not defined in its namespace's config — but only when a
+   * config exists. A namespace with no config (or one that couldn't be fetched) is left permissive.
+   */
+  private void validateRelationDefined(RelationTuple tuple) {
+    relationsProvider
+        .definedRelations(tuple.namespace())
+        .ifPresent(
+            relations -> {
+              if (!relations.contains(tuple.relation())) {
+                throw new IllegalArgumentException(
+                    "Relation '"
+                        + tuple.relation()
+                        + "' is not defined in namespace '"
+                        + tuple.namespace()
+                        + "'");
+              }
+            });
   }
 
   private static boolean isBlank(String value) {

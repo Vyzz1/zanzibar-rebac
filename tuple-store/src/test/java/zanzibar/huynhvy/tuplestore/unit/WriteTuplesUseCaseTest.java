@@ -2,6 +2,7 @@ package zanzibar.huynhvy.tuplestore.unit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -11,11 +12,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.domain.Zookie;
+import zanzibar.huynhvy.tuplestore.domain.NamespaceRelationsProvider;
 import zanzibar.huynhvy.tuplestore.domain.WriteTuplesUseCase;
 import zanzibar.huynhvy.tuplestore.domain.ZookieMinter;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxEvent;
@@ -30,6 +34,7 @@ class WriteTuplesUseCaseTest {
   private TupleWriteRepository tupleWriteRepository;
   private OutboxRepository outboxRepository;
   private ZookieMinter zookieMinter;
+  private NamespaceRelationsProvider relationsProvider;
   private WriteTuplesUseCase useCase;
 
   @BeforeEach
@@ -37,9 +42,17 @@ class WriteTuplesUseCaseTest {
     tupleWriteRepository = mock(TupleWriteRepository.class);
     outboxRepository = mock(OutboxRepository.class);
     zookieMinter = mock(ZookieMinter.class);
+    relationsProvider = mock(NamespaceRelationsProvider.class);
+    // No config known by default → writes are permitted.
+    when(relationsProvider.definedRelations(any())).thenReturn(Optional.empty());
     useCase =
         new WriteTuplesUseCase(
-            tupleWriteRepository, outboxRepository, zookieMinter, new ObjectMapper());
+            tupleWriteRepository,
+            outboxRepository,
+            zookieMinter,
+            new ObjectMapper(),
+            relationsProvider,
+            true);
   }
 
   @Test
@@ -64,16 +77,36 @@ class WriteTuplesUseCaseTest {
   }
 
   @Test
+  void rejects_a_relation_not_defined_in_the_namespace_config() {
+    // config exists for "doc" but only defines "editor" — "viewer" is undefined.
+    when(relationsProvider.definedRelations("doc")).thenReturn(Optional.of(Set.of("editor")));
+
+    assertThatThrownBy(() -> useCase.execute(List.of(VALID)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("viewer");
+    verifyNoInteractions(tupleWriteRepository, outboxRepository);
+  }
+
+  @Test
+  void writes_when_the_relation_is_defined_in_the_config() {
+    when(relationsProvider.definedRelations("doc"))
+        .thenReturn(Optional.of(Set.of("viewer", "editor")));
+    stubWrite();
+
+    useCase.execute(List.of(VALID));
+
+    verify(tupleWriteRepository).save(VALID);
+  }
+
+  @Test
   void writes_tuple_enqueues_outbox_and_mints_zookie_from_commit_timestamp() {
-    OffsetDateTime commitTs = OffsetDateTime.of(2026, 7, 10, 12, 0, 0, 0, ZoneOffset.UTC);
-    when(tupleWriteRepository.save(VALID)).thenReturn(commitTs);
-    when(zookieMinter.mint(commitTs)).thenReturn(new Zookie("zk-token"));
+    stubWrite();
 
     Zookie result = useCase.execute(List.of(VALID));
 
     assertThat(result.token()).isEqualTo("zk-token");
     verify(tupleWriteRepository).save(VALID);
-    verify(zookieMinter).mint(commitTs);
+    verify(zookieMinter).mint(any());
 
     ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
     verify(outboxRepository).save(captor.capture());
@@ -81,5 +114,29 @@ class WriteTuplesUseCaseTest {
     assertThat(event.getEventType()).isEqualTo("TUPLE_CREATED");
     assertThat(event.getPayload()).contains("report.pdf").contains("viewer");
     assertThat(event.isPublished()).isFalse();
+  }
+
+  @Test
+  void validation_is_skipped_when_disabled() {
+    WriteTuplesUseCase noValidation =
+        new WriteTuplesUseCase(
+            tupleWriteRepository,
+            outboxRepository,
+            zookieMinter,
+            new ObjectMapper(),
+            relationsProvider,
+            false);
+    stubWrite();
+
+    noValidation.execute(List.of(VALID));
+
+    verify(tupleWriteRepository).save(VALID);
+    verifyNoInteractions(relationsProvider);
+  }
+
+  private void stubWrite() {
+    OffsetDateTime commitTs = OffsetDateTime.of(2026, 7, 10, 12, 0, 0, 0, ZoneOffset.UTC);
+    when(tupleWriteRepository.save(VALID)).thenReturn(commitTs);
+    when(zookieMinter.mint(commitTs)).thenReturn(new Zookie("zk-token"));
   }
 }

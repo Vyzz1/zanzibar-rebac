@@ -31,6 +31,16 @@ server:
 grpc:
   server:
     port: 9092
+  client:
+    namespace-manager:
+      address: ${NAMESPACE_MANAGER_GRPC:static://localhost:9094}
+      negotiation-type: plaintext
+
+# Reject writes whose relation is not defined in the namespace's config (when a config exists).
+# Best-effort: if namespace-manager is unreachable the write is allowed through.
+tuple:
+  validation:
+    enabled: true
 
 management:
   endpoints:
