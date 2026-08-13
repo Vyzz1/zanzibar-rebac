@@ -35,7 +35,9 @@ class OutboxPollerIntegrationTest extends BaseIntegrationTest {
 
   @BeforeEach
   void clean() {
-    Queue queue = new Queue(TEST_QUEUE, false, false, true);
+    // Not auto-delete: receiveAndConvert(timeout) uses a consumer, which would otherwise drop an
+    // auto-delete queue when it cancels, breaking a following receive().
+    Queue queue = new Queue(TEST_QUEUE, false, false, false);
     amqpAdmin.declareQueue(queue);
     amqpAdmin.declareBinding(
         BindingBuilder.bind(queue).to(new FanoutExchange(RabbitConfig.TUPLE_CHANGES_EXCHANGE)));
