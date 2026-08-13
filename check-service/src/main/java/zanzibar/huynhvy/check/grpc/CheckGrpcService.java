@@ -4,15 +4,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import net.devh.boot.grpc.server.service.GrpcService;
 import zanzibar.huynhvy.api.AuthorizationServiceGrpc;
+import zanzibar.huynhvy.api.BatchCheckRequest;
+import zanzibar.huynhvy.api.BatchCheckResponse;
 import zanzibar.huynhvy.api.CheckRequest;
 import zanzibar.huynhvy.api.CheckResponse;
 import zanzibar.huynhvy.api.ExpandRequest;
 import zanzibar.huynhvy.api.ExpandResponse;
 import zanzibar.huynhvy.api.ReadTuplesRequest;
 import zanzibar.huynhvy.api.ReadTuplesResponse;
+import zanzibar.huynhvy.check.domain.BatchCheckUseCase;
 import zanzibar.huynhvy.check.domain.CheckUseCase;
 import zanzibar.huynhvy.check.domain.ExpandUseCase;
 import zanzibar.huynhvy.check.domain.ReadTuplesResult;
@@ -25,6 +29,7 @@ import zanzibar.huynhvy.shared.domain.RelationTuple;
 public class CheckGrpcService extends AuthorizationServiceGrpc.AuthorizationServiceImplBase {
 
   private final CheckUseCase checkUseCase;
+  private final BatchCheckUseCase batchCheckUseCase;
   private final ReadTuplesUseCase readTuplesUseCase;
   private final ExpandUseCase expandUseCase;
   private final ObjectMapper objectMapper;
@@ -42,6 +47,36 @@ public class CheckGrpcService extends AuthorizationServiceGrpc.AuthorizationServ
 
     responseObserver.onNext(CheckResponse.newBuilder().setAllowed(allowed).build());
     responseObserver.onCompleted();
+  }
+
+  @Override
+  public void batchCheck(
+      BatchCheckRequest request, StreamObserver<BatchCheckResponse> responseObserver) {
+    try {
+      List<BatchCheckUseCase.BatchItem> items =
+          request.getChecksList().stream()
+              .map(
+                  check ->
+                      new BatchCheckUseCase.BatchItem(
+                          new RelationTuple(
+                              check.getNamespace(),
+                              check.getObjectId(),
+                              check.getRelation(),
+                              check.getSubjectId()),
+                          check.getZookie()))
+              .toList();
+
+      BatchCheckResponse.Builder response = BatchCheckResponse.newBuilder();
+      batchCheckUseCase
+          .checkAll(items)
+          .forEach(allowed -> response.addResults(CheckResponse.newBuilder().setAllowed(allowed)));
+
+      responseObserver.onNext(response.build());
+      responseObserver.onCompleted();
+    } catch (IllegalArgumentException e) {
+      responseObserver.onError(
+          Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+    }
   }
 
   @Override

@@ -17,6 +17,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import zanzibar.huynhvy.check.client.NamespaceConfigClient;
+import zanzibar.huynhvy.check.domain.BatchCheckUseCase;
+import zanzibar.huynhvy.check.domain.BatchCheckUseCase.BatchItem;
 import zanzibar.huynhvy.check.domain.CheckUseCase;
 import zanzibar.huynhvy.check.domain.NamespaceConfigView;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
@@ -46,6 +48,7 @@ class CheckServiceIntegrationTest extends BaseIntegrationTest {
       new RelationTuple("doc", "report.pdf", "viewer", "user:bob");
 
   @Autowired private CheckUseCase checkUseCase;
+  @Autowired private BatchCheckUseCase batchCheckUseCase;
   @Autowired private JdbcTemplate jdbcTemplate;
   @MockitoBean private NamespaceConfigClient namespaceConfigClient;
 
@@ -145,6 +148,21 @@ class CheckServiceIntegrationTest extends BaseIntegrationTest {
             checkUseCase.check(
                 new RelationTuple("doc-grp", "report.pdf", "viewer", "user:carol"), null))
         .isFalse();
+  }
+
+  @Test
+  void batch_check_returns_a_result_per_input_in_order() {
+    seed(BOB_VIEWER);
+
+    List<Boolean> results =
+        batchCheckUseCase.checkAll(
+            List.of(
+                new BatchItem(BOB_VIEWER, null), // viewer tuple exists → true
+                new BatchItem(
+                    new RelationTuple("doc", "report.pdf", "editor", "user:bob"),
+                    null))); // → false
+
+    assertThat(results).containsExactly(true, false);
   }
 
   private void seed(RelationTuple tuple) {
