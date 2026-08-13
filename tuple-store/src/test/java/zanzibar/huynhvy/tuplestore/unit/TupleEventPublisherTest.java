@@ -20,11 +20,11 @@ class TupleEventPublisherTest {
   @InjectMocks private TupleEventPublisher publisher;
 
   @Test
-  void publishes_the_payload_to_the_tuple_changes_queue() {
+  void publishes_the_payload_to_the_tuple_changes_exchange() {
     OutboxEvent event = OutboxEvent.create("agg-1", "TUPLE_CREATED", "{\"x\":1}");
 
     publisher.publish(event);
 
-    verify(rabbitTemplate).convertAndSend(RabbitConfig.TUPLE_CHANGES_QUEUE, "{\"x\":1}");
+    verify(rabbitTemplate).convertAndSend(RabbitConfig.TUPLE_CHANGES_EXCHANGE, "", "{\"x\":1}");
   }
 }
