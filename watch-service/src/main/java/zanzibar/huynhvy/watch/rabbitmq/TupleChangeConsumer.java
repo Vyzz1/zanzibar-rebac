@@ -24,7 +24,7 @@ public class TupleChangeConsumer {
   private final ObjectMapper objectMapper;
   private final StreamRegistry registry;
 
-  @RabbitListener(queues = RabbitConfig.TUPLE_CHANGES_QUEUE)
+  @RabbitListener(queues = RabbitConfig.WATCH_QUEUE)
   public void consume(String message) {
     RelationTuple tuple;
     try {

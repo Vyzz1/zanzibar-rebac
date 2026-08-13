@@ -31,7 +31,8 @@ class WatchIntegrationTest extends BaseIntegrationTest {
     registry.register("doc", collectInto(received));
 
     rabbitTemplate.convertAndSend(
-        RabbitConfig.TUPLE_CHANGES_QUEUE,
+        RabbitConfig.TUPLE_CHANGES_EXCHANGE,
+        "",
         "{\"namespace\":\"doc\",\"objectId\":\"report.pdf\","
             + "\"relation\":\"viewer\",\"subjectId\":\"user:bob\"}");
 
@@ -49,7 +50,8 @@ class WatchIntegrationTest extends BaseIntegrationTest {
     registry.register("doc", collectInto(received));
 
     rabbitTemplate.convertAndSend(
-        RabbitConfig.TUPLE_CHANGES_QUEUE,
+        RabbitConfig.TUPLE_CHANGES_EXCHANGE,
+        "",
         "{\"namespace\":\"folder\",\"objectId\":\"root\","
             + "\"relation\":\"viewer\",\"subjectId\":\"user:carol\"}");
 

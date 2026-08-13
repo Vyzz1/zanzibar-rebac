@@ -15,8 +15,11 @@ public class TupleEventPublisher {
   private final RabbitTemplate rabbitTemplate;
 
   public void publish(OutboxEvent event) {
-    rabbitTemplate.convertAndSend(RabbitConfig.TUPLE_CHANGES_QUEUE, event.getPayload());
+    // Fanout exchange ignores the routing key.
+    rabbitTemplate.convertAndSend(RabbitConfig.TUPLE_CHANGES_EXCHANGE, "", event.getPayload());
     log.debug(
-        "Published outbox event {} to queue {}", event.getId(), RabbitConfig.TUPLE_CHANGES_QUEUE);
+        "Published outbox event {} to exchange {}",
+        event.getId(),
+        RabbitConfig.TUPLE_CHANGES_EXCHANGE);
   }
 }

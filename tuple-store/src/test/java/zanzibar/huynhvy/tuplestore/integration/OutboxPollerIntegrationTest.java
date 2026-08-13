@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.core.AmqpAdmin;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.FanoutExchange;
+import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,17 +23,25 @@ import zanzibar.huynhvy.tuplestore.outbox.OutboxRepository;
 class OutboxPollerIntegrationTest extends BaseIntegrationTest {
 
   private static final long RECEIVE_TIMEOUT_MS = 5_000;
+  // A private queue bound to the fanout exchange, standing in for a consumer service.
+  private static final String TEST_QUEUE = "test.tuple-changes";
 
   @Autowired private OutboxPoller poller;
   @Autowired private OutboxRepository outboxRepository;
   @Autowired private RabbitTemplate rabbitTemplate;
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private ObjectMapper objectMapper;
+  @Autowired private AmqpAdmin amqpAdmin;
 
   @BeforeEach
   void clean() {
+    Queue queue = new Queue(TEST_QUEUE, false, false, true);
+    amqpAdmin.declareQueue(queue);
+    amqpAdmin.declareBinding(
+        BindingBuilder.bind(queue).to(new FanoutExchange(RabbitConfig.TUPLE_CHANGES_EXCHANGE)));
+
     jdbcTemplate.execute("TRUNCATE tuplestore.outbox_events, tuplestore.relation_tuples");
-    while (rabbitTemplate.receive(RabbitConfig.TUPLE_CHANGES_QUEUE) != null) {
+    while (rabbitTemplate.receive(TEST_QUEUE) != null) {
       // drain leftovers from previous tests
     }
   }
@@ -41,8 +53,7 @@ class OutboxPollerIntegrationTest extends BaseIntegrationTest {
 
     poller.poll();
 
-    Object body =
-        rabbitTemplate.receiveAndConvert(RabbitConfig.TUPLE_CHANGES_QUEUE, RECEIVE_TIMEOUT_MS);
+    Object body = rabbitTemplate.receiveAndConvert(TEST_QUEUE, RECEIVE_TIMEOUT_MS);
     // Compare as JSON: the jsonb column re-serializes the payload (e.g. adds a space after ':').
     assertThat(objectMapper.readTree((String) body)).isEqualTo(objectMapper.readTree("{\"x\":1}"));
     assertThat(countUnpublished()).isZero();
@@ -55,9 +66,8 @@ class OutboxPollerIntegrationTest extends BaseIntegrationTest {
     poller.poll(); // publishes + marks
     poller.poll(); // nothing left to publish
 
-    Object first =
-        rabbitTemplate.receiveAndConvert(RabbitConfig.TUPLE_CHANGES_QUEUE, RECEIVE_TIMEOUT_MS);
-    Object second = rabbitTemplate.receive(RabbitConfig.TUPLE_CHANGES_QUEUE);
+    Object first = rabbitTemplate.receiveAndConvert(TEST_QUEUE, RECEIVE_TIMEOUT_MS);
+    Object second = rabbitTemplate.receive(TEST_QUEUE);
     assertThat(first).isEqualTo("{}");
     assertThat(second).isNull();
   }
