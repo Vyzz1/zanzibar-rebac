@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import zanzibar.huynhvy.api.WatchEvent;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
@@ -12,9 +13,8 @@ import zanzibar.huynhvy.watch.config.RabbitConfig;
 import zanzibar.huynhvy.watch.stream.StreamRegistry;
 
 /**
- * Consumes tuple-change messages published by tuple-store (the JSON of a {@link RelationTuple}) and
- * fans each out to the Watch streams for that namespace. tuple-store only emits creates today, so
- * every event is a {@code CREATE}.
+ * Consumes tuple-change messages published by tuple-store (the JSON of a {@link RelationTuple},
+ * with an {@code operation} header) and fans each out to the Watch streams for that namespace.
  */
 @Slf4j
 @Component
@@ -25,7 +25,8 @@ public class TupleChangeConsumer {
   private final StreamRegistry registry;
 
   @RabbitListener(queues = RabbitConfig.WATCH_QUEUE)
-  public void consume(String message) {
+  public void consume(
+      String message, @Header(name = "operation", required = false) String operation) {
     RelationTuple tuple;
     try {
       tuple = objectMapper.readValue(message, RelationTuple.class);
@@ -36,7 +37,7 @@ public class TupleChangeConsumer {
 
     WatchEvent event =
         WatchEvent.newBuilder()
-            .setOperation(WatchEvent.Operation.CREATE)
+            .setOperation(operationOf(operation))
             .setTuple(
                 zanzibar.huynhvy.api.RelationTuple.newBuilder()
                     .setNamespace(tuple.namespace())
@@ -47,5 +48,10 @@ public class TupleChangeConsumer {
             .build();
 
     registry.publish(tuple.namespace(), event);
+  }
+
+  private static WatchEvent.Operation operationOf(String operation) {
+    // Absent header (older messages) defaults to CREATE.
+    return "DELETE".equals(operation) ? WatchEvent.Operation.DELETE : WatchEvent.Operation.CREATE;
   }
 }

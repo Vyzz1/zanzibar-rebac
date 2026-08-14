@@ -45,6 +45,26 @@ class WatchIntegrationTest extends BaseIntegrationTest {
   }
 
   @Test
+  void a_delete_message_reaches_the_stream_as_a_delete_event() throws Exception {
+    BlockingQueue<WatchEvent> received = new LinkedBlockingQueue<>();
+    registry.register("doc", collectInto(received));
+
+    rabbitTemplate.convertAndSend(
+        RabbitConfig.TUPLE_CHANGES_EXCHANGE,
+        "",
+        "{\"namespace\":\"doc\",\"objectId\":\"report.pdf\","
+            + "\"relation\":\"viewer\",\"subjectId\":\"user:bob\"}",
+        message -> {
+          message.getMessageProperties().setHeader("operation", "DELETE");
+          return message;
+        });
+
+    WatchEvent event = received.poll(10, TimeUnit.SECONDS);
+    assertThat(event).isNotNull();
+    assertThat(event.getOperation()).isEqualTo(WatchEvent.Operation.DELETE);
+  }
+
+  @Test
   void an_event_for_another_namespace_is_not_delivered() throws Exception {
     BlockingQueue<WatchEvent> received = new LinkedBlockingQueue<>();
     registry.register("doc", collectInto(received));

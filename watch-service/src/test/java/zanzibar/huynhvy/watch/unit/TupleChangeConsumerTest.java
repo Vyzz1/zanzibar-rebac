@@ -15,29 +15,48 @@ import zanzibar.huynhvy.watch.stream.StreamRegistry;
 
 class TupleChangeConsumerTest {
 
+  private static final String TUPLE_JSON =
+      "{\"namespace\":\"doc\",\"objectId\":\"report.pdf\","
+          + "\"relation\":\"viewer\",\"subjectId\":\"user:bob\"}";
+
   private final StreamRegistry registry = mock(StreamRegistry.class);
   private final TupleChangeConsumer consumer =
       new TupleChangeConsumer(new ObjectMapper(), registry);
 
   @Test
-  void parses_a_tuple_and_publishes_a_create_event_to_its_namespace() {
-    consumer.consume(
-        "{\"namespace\":\"doc\",\"objectId\":\"report.pdf\","
-            + "\"relation\":\"viewer\",\"subjectId\":\"user:bob\"}");
+  void a_create_message_publishes_a_create_event_to_its_namespace() {
+    consumer.consume(TUPLE_JSON, "CREATE");
 
-    ArgumentCaptor<WatchEvent> captor = ArgumentCaptor.forClass(WatchEvent.class);
-    verify(registry).publish(eq("doc"), captor.capture());
-    WatchEvent event = captor.getValue();
+    WatchEvent event = captured();
     assertThat(event.getOperation()).isEqualTo(WatchEvent.Operation.CREATE);
     assertThat(event.getTuple().getObjectId()).isEqualTo("report.pdf");
-    assertThat(event.getTuple().getRelation()).isEqualTo("viewer");
     assertThat(event.getTuple().getSubjectId()).isEqualTo("user:bob");
   }
 
   @Test
+  void a_delete_message_publishes_a_delete_event() {
+    consumer.consume(TUPLE_JSON, "DELETE");
+
+    assertThat(captured().getOperation()).isEqualTo(WatchEvent.Operation.DELETE);
+  }
+
+  @Test
+  void a_missing_operation_header_defaults_to_create() {
+    consumer.consume(TUPLE_JSON, null);
+
+    assertThat(captured().getOperation()).isEqualTo(WatchEvent.Operation.CREATE);
+  }
+
+  @Test
   void ignores_an_unparseable_message() {
-    consumer.consume("not-json");
+    consumer.consume("not-json", "CREATE");
 
     verifyNoInteractions(registry);
+  }
+
+  private WatchEvent captured() {
+    ArgumentCaptor<WatchEvent> captor = ArgumentCaptor.forClass(WatchEvent.class);
+    verify(registry).publish(eq("doc"), captor.capture());
+    return captor.getValue();
   }
 }

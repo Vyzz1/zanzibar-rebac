@@ -6,6 +6,7 @@ import static org.jooq.impl.DSL.table;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.springframework.stereotype.Repository;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 
@@ -29,5 +30,21 @@ public class TupleWriteRepositoryImpl implements TupleWriteRepository {
         .returning(field("commit_timestamp"))
         .fetchOne()
         .get("commit_timestamp", OffsetDateTime.class);
+  }
+
+  @Override
+  public int delete(RelationTuple tuple) {
+    return dsl.deleteFrom(table("relation_tuples"))
+        .where(field("namespace", String.class).eq(tuple.namespace()))
+        .and(field("object_id", String.class).eq(tuple.objectId()))
+        .and(field("relation", String.class).eq(tuple.relation()))
+        .and(field("subject_id", String.class).eq(tuple.subjectId()))
+        .execute();
+  }
+
+  @Override
+  public OffsetDateTime currentTimestamp() {
+    Field<OffsetDateTime> now = field("clock_timestamp()", OffsetDateTime.class);
+    return dsl.select(now).fetchOne(now);
   }
 }

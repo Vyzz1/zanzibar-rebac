@@ -64,6 +64,15 @@ message WriteTuplesResponse {
   string zookie = 1;
 }
 
+message DeleteTuplesRequest {
+  repeated RelationTuple tuples = 1;
+}
+
+message DeleteTuplesResponse {
+  // Consistency token minted from the delete's commit timestamp.
+  string zookie = 1;
+}
+
 message WatchRequest {
   string namespace = 1;
   // Resume cursor; empty means "from now on".
@@ -104,6 +113,7 @@ service AuthorizationService {
   rpc ReadTuples(ReadTuplesRequest) returns (ReadTuplesResponse);
   rpc Expand(ExpandRequest) returns (ExpandResponse);
   rpc WriteTuples(WriteTuplesRequest) returns (WriteTuplesResponse);
+  rpc DeleteTuples(DeleteTuplesRequest) returns (DeleteTuplesResponse);
   rpc Watch(WatchRequest) returns (stream WatchEvent);
 }
 
