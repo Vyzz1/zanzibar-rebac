@@ -50,8 +50,14 @@ public class TupleChangeConsumer {
     registry.publish(tuple.namespace(), event);
   }
 
-  private static WatchEvent.Operation operationOf(String operation) {
-    // Absent header (older messages) defaults to CREATE.
-    return "DELETE".equals(operation) ? WatchEvent.Operation.DELETE : WatchEvent.Operation.CREATE;
+  private WatchEvent.Operation operationOf(String operation) {
+    if ("DELETE".equals(operation)) {
+      return WatchEvent.Operation.DELETE;
+    }
+    // Absent header (older messages) defaults to CREATE; an unexpected value is logged.
+    if (operation != null && !"CREATE".equals(operation)) {
+      log.warn("Unknown operation header '{}'; treating as CREATE", operation);
+    }
+    return WatchEvent.Operation.CREATE;
   }
 }
