@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import zanzibar.huynhvy.check.cache.TupleCache;
-import zanzibar.huynhvy.check.config.RabbitConfig;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 
 /**
@@ -23,7 +22,7 @@ public class TupleChangeCacheEvicter {
   private final ObjectMapper objectMapper;
   private final TupleCache tupleCache;
 
-  @RabbitListener(queues = RabbitConfig.CHECK_QUEUE)
+  @RabbitListener(queues = "#{checkCacheQueue.name}")
   public void onTupleChange(String message) {
     RelationTuple tuple;
     try {
