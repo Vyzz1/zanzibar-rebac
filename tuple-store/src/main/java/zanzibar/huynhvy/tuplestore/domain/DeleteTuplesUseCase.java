@@ -1,6 +1,5 @@
 package zanzibar.huynhvy.tuplestore.domain;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +10,7 @@ import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.domain.Zookie;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxEvent;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxRepository;
+import zanzibar.huynhvy.tuplestore.outbox.TupleChangeType;
 import zanzibar.huynhvy.tuplestore.repository.TupleWriteRepository;
 
 /**
@@ -24,8 +24,6 @@ import zanzibar.huynhvy.tuplestore.repository.TupleWriteRepository;
 @RequiredArgsConstructor
 public class DeleteTuplesUseCase {
 
-  private static final String EVENT_TYPE = "TUPLE_DELETED";
-
   private final TupleWriteRepository tupleWriteRepository;
   private final OutboxRepository outboxRepository;
   private final ZookieMinter zookieMinter;
@@ -36,47 +34,20 @@ public class DeleteTuplesUseCase {
     if (tuples == null || tuples.isEmpty()) {
       throw new IllegalArgumentException("Tuples must not be empty");
     }
-    tuples.forEach(this::validateTuple);
+    tuples.forEach(Tuples::requireComplete);
 
     for (RelationTuple tuple : tuples) {
       int deleted = tupleWriteRepository.delete(tuple);
       if (deleted > 0) {
-        outboxRepository.save(OutboxEvent.create(aggregateId(tuple), EVENT_TYPE, toJson(tuple)));
+        outboxRepository.save(
+            OutboxEvent.create(
+                Tuples.aggregateId(tuple),
+                TupleChangeType.DELETED.eventType(),
+                Tuples.toJson(objectMapper, tuple)));
         log.info("Deleted tuple {} ({} row(s))", tuple, deleted);
       }
     }
 
     return zookieMinter.mint(tupleWriteRepository.currentTimestamp());
-  }
-
-  private void validateTuple(RelationTuple tuple) {
-    if (isBlank(tuple.namespace())
-        || isBlank(tuple.objectId())
-        || isBlank(tuple.relation())
-        || isBlank(tuple.subjectId())) {
-      throw new IllegalArgumentException("Tuple fields must not be empty: " + tuple);
-    }
-  }
-
-  private static boolean isBlank(String value) {
-    return value == null || value.isBlank();
-  }
-
-  private static String aggregateId(RelationTuple tuple) {
-    return tuple.namespace()
-        + ":"
-        + tuple.objectId()
-        + "#"
-        + tuple.relation()
-        + "@"
-        + tuple.subjectId();
-  }
-
-  private String toJson(RelationTuple tuple) {
-    try {
-      return objectMapper.writeValueAsString(tuple);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Failed to serialize tuple to JSON: " + tuple, e);
-    }
   }
 }
