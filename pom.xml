@@ -23,7 +23,8 @@
              without an explicit name. Spring Boot's parent sets this, but we import the BOM
              instead of inheriting it. -->
         <maven.compiler.parameters>true</maven.compiler.parameters>
-        <spring-boot.version>3.5.1</spring-boot.version>
+        <!-- 3.5.12 patches CVE-2026-22731 and CVE-2026-22733 (actuator auth bypass). -->
+        <spring-boot.version>3.5.12</spring-boot.version>
         <grpc.version>1.65.0</grpc.version>
         <testcontainers.version>1.21.3</testcontainers.version>
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>

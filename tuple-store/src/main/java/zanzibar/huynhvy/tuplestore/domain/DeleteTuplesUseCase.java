@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.domain.Zookie;
+import zanzibar.huynhvy.tuplestore.metrics.TupleStoreMetrics;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxEvent;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxRepository;
 import zanzibar.huynhvy.tuplestore.outbox.TupleChangeType;
@@ -28,6 +29,7 @@ public class DeleteTuplesUseCase {
   private final OutboxRepository outboxRepository;
   private final ZookieMinter zookieMinter;
   private final ObjectMapper objectMapper;
+  private final TupleStoreMetrics metrics;
 
   @Transactional
   public Zookie execute(List<RelationTuple> tuples) {
@@ -44,6 +46,7 @@ public class DeleteTuplesUseCase {
                 Tuples.aggregateId(tuple),
                 TupleChangeType.DELETED.eventType(),
                 Tuples.toJson(objectMapper, tuple)));
+        metrics.tuplesDeleted(deleted);
         log.info("Deleted tuple {} ({} row(s))", tuple, deleted);
       }
     }

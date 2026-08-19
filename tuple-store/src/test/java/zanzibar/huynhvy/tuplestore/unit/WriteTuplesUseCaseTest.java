@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -22,6 +23,7 @@ import zanzibar.huynhvy.shared.domain.Zookie;
 import zanzibar.huynhvy.tuplestore.domain.NamespaceRelationsProvider;
 import zanzibar.huynhvy.tuplestore.domain.WriteTuplesUseCase;
 import zanzibar.huynhvy.tuplestore.domain.ZookieMinter;
+import zanzibar.huynhvy.tuplestore.metrics.TupleStoreMetrics;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxEvent;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxRepository;
 import zanzibar.huynhvy.tuplestore.repository.TupleWriteRepository;
@@ -52,6 +54,7 @@ class WriteTuplesUseCaseTest {
             zookieMinter,
             new ObjectMapper(),
             relationsProvider,
+            new TupleStoreMetrics(new SimpleMeterRegistry()),
             true);
   }
 
@@ -125,6 +128,7 @@ class WriteTuplesUseCaseTest {
             zookieMinter,
             new ObjectMapper(),
             relationsProvider,
+            new TupleStoreMetrics(new SimpleMeterRegistry()),
             false);
     stubWrite();
 

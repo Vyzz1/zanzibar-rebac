@@ -1,6 +1,9 @@
 package zanzibar.huynhvy.watch.stream;
 
 import io.grpc.stub.StreamObserver;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -21,6 +24,23 @@ public class StreamRegistry {
   private final ConcurrentMap<String, Set<StreamObserver<WatchEvent>>> byNamespace =
       new ConcurrentHashMap<>();
 
+  private final Counter eventsDelivered;
+
+  public StreamRegistry(MeterRegistry registry) {
+    Gauge.builder("zanzibar.watch.streams.active", this, StreamRegistry::totalSubscribers)
+        .description("Open Watch streams on this instance")
+        .register(registry);
+    this.eventsDelivered =
+        Counter.builder("zanzibar.watch.events.delivered")
+            .description("Watch events pushed to subscribers")
+            .register(registry);
+  }
+
+  /** Total open streams across all namespaces — backs the active-streams gauge. */
+  public int totalSubscribers() {
+    return byNamespace.values().stream().mapToInt(Set::size).sum();
+  }
+
   public void register(String namespace, StreamObserver<WatchEvent> observer) {
     byNamespace.computeIfAbsent(namespace, key -> ConcurrentHashMap.newKeySet()).add(observer);
   }
@@ -40,6 +60,7 @@ public class StreamRegistry {
     for (StreamObserver<WatchEvent> observer : observers) {
       try {
         observer.onNext(event);
+        eventsDelivered.increment();
       } catch (RuntimeException e) {
         log.debug("Dropping a Watch stream that failed on delivery", e);
         unregister(namespace, observer);
