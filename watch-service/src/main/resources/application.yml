@@ -16,6 +16,10 @@ grpc:
 
 # Tuple changes are consumed from a RabbitMQ stream (retained log), so a Watch cursor can be
 # replayed later. max-age bounds how far back that is possible.
+# Must match tuple-store's ZOOKIE_SECRET so Zookies minted there validate here.
+zookie:
+  secret: ${ZOOKIE_SECRET:dev-only-secret-change-me}
+
 watch:
   stream:
     max-age: 24h
