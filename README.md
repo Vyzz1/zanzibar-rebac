@@ -36,6 +36,10 @@ The core question this system answers:
 - **Revocation** — `DeleteTuples` removes grants and propagates a `DELETE` event.
 - **Introspection** — `ReadTuples` (paginated) lists raw tuples; `Expand` returns
   the effective userset tree for an `object#relation` (admin/debug).
+- **Resumable Watch** — changes stream from a RabbitMQ **stream queue** (a retained
+  log). Pass the Zookie of the last write you saw and Watch replays everything since
+  before going live; a cursor older than the retention window is rejected
+  (`OUT_OF_RANGE`) rather than silently skipping the gap.
 - **Reliability** — tuple changes are published via the **outbox pattern**
   (tuple + event in one transaction, drained by a poller) to a **fanout exchange**,
   so every consumer (watch-service, check-service) gets every event.
