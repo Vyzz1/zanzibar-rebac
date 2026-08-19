@@ -14,6 +14,14 @@ grpc:
   server:
     port: 9093
 
+# Tuple changes are consumed from a RabbitMQ stream (retained log), so a Watch cursor can be
+# replayed later. max-age bounds how far back that is possible.
+watch:
+  stream:
+    max-age: 24h
+    prefetch: 100
+    offset: next
+
 management:
   endpoints:
     web:
