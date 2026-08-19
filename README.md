@@ -204,6 +204,29 @@ grpcurl -plaintext -d '{"namespace":"doc","objectId":"report.pdf","relation":"vi
 
 ---
 
+## Observability
+
+Every service exposes Prometheus metrics on its HTTP port at
+`/actuator/prometheus` (plus `/actuator/health`), e.g. http://localhost:8081/actuator/prometheus.
+
+Alongside the JVM/HTTP defaults, these are the domain meters:
+
+| Metric | Tags | Meaning |
+|---|---|---|
+| `zanzibar.check.cache` | `result=hit\|stale\|miss` | Cache lookups. A rising **stale** share means callers often read right after their own writes (Zookie forced a fresh read). |
+| `zanzibar.check.duration` | `result=allowed\|denied` | End-to-end check latency. |
+| `zanzibar.tuples.written` | — | Grants written. |
+| `zanzibar.tuples.deleted` | — | Revocations. |
+| `zanzibar.outbox.published` | — | Events drained to RabbitMQ. A persistent gap versus the two counters above means the outbox poller is behind. |
+| `zanzibar.watch.streams.active` | — | Open Watch streams on this instance (gauge). |
+| `zanzibar.watch.events.delivered` | — | Watch events pushed to subscribers. |
+
+Useful derived queries: cache hit ratio
+`rate(zanzibar_check_cache_total{result="hit"}[5m]) / rate(zanzibar_check_cache_total[5m])`,
+and check p99 `histogram_quantile(0.99, rate(zanzibar_check_duration_seconds_bucket[5m]))`.
+
+---
+
 ## Development
 
 ```bash

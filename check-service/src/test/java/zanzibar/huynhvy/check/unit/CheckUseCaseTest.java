@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -24,6 +25,7 @@ import zanzibar.huynhvy.check.domain.CheckUseCase;
 import zanzibar.huynhvy.check.domain.GraphTraverser;
 import zanzibar.huynhvy.check.domain.NamespaceConfigProvider;
 import zanzibar.huynhvy.check.domain.SnapshotClock;
+import zanzibar.huynhvy.check.metrics.CheckMetrics;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.security.ZookieValidator;
 
@@ -38,9 +40,13 @@ class CheckUseCaseTest {
   private TupleCache tupleCache;
   private CacheKeyStrategy cacheKeyStrategy;
   private SnapshotClock snapshotClock;
+  private SimpleMeterRegistry meterRegistry;
+  private CheckMetrics checkMetrics;
 
   @BeforeEach
   void setUp() {
+    meterRegistry = new SimpleMeterRegistry();
+    checkMetrics = new CheckMetrics(meterRegistry);
     graphTraverser = mock(GraphTraverser.class);
     zookieValidator = mock(ZookieValidator.class);
     tupleCache = mock(TupleCache.class);
@@ -56,6 +62,7 @@ class CheckUseCaseTest {
         tupleCache,
         cacheKeyStrategy,
         snapshotClock,
+        checkMetrics,
         cacheEnabled,
         60);
   }
@@ -138,6 +145,41 @@ class CheckUseCaseTest {
     useCase(true).check(TUPLE, "");
 
     verifyNoInteractions(zookieValidator);
+  }
+
+  @Test
+  void records_a_miss_and_an_allowed_duration() {
+    keyIs(KEY);
+    when(tupleCache.get(KEY)).thenReturn(Optional.empty());
+    when(snapshotClock.nowNanos()).thenReturn(500L);
+    traverserReturns(true);
+
+    useCase(true).check(TUPLE, null);
+
+    assertThat(cacheCount("miss")).isEqualTo(1);
+    assertThat(cacheCount("hit")).isZero();
+    assertThat(
+            meterRegistry.get("zanzibar.check.duration").tag("result", "allowed").timer().count())
+        .isEqualTo(1);
+  }
+
+  @Test
+  void records_a_hit_and_a_stale_bypass_separately() {
+    keyIs(KEY);
+    when(tupleCache.get(KEY)).thenReturn(Optional.of(new CachedCheck(true, 100L)));
+    useCase(true).check(TUPLE, null); // no zookie -> hit
+
+    when(zookieValidator.readTimestampNanos(any())).thenReturn(OptionalLong.of(200L)); // 100 < 200
+    when(snapshotClock.nowNanos()).thenReturn(500L);
+    traverserReturns(true);
+    useCase(true).check(TUPLE, "zk"); // cached but too old -> stale
+
+    assertThat(cacheCount("hit")).isEqualTo(1);
+    assertThat(cacheCount("stale")).isEqualTo(1);
+  }
+
+  private double cacheCount(String result) {
+    return meterRegistry.get("zanzibar.check.cache").tag("result", result).counter().count();
   }
 
   @Test

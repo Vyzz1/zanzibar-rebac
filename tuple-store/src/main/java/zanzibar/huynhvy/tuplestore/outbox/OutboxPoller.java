@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import zanzibar.huynhvy.tuplestore.metrics.TupleStoreMetrics;
 import zanzibar.huynhvy.tuplestore.rabbitmq.TupleEventPublisher;
 
 @Slf4j
@@ -18,6 +19,7 @@ public class OutboxPoller {
 
   private final OutboxRepository outboxRepository;
   private final TupleEventPublisher publisher;
+  private final TupleStoreMetrics metrics;
 
   /**
    * Drains a batch of unpublished events every poll interval. The whole batch runs in one
@@ -37,6 +39,7 @@ public class OutboxPoller {
       publisher.publish(event);
       event.markPublished(now); // flushed on commit via dirty checking
     }
+    metrics.outboxPublished(batch.size());
     log.debug("Published {} outbox event(s)", batch.size());
   }
 }

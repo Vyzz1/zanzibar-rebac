@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.grpc.stub.StreamObserver;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import zanzibar.huynhvy.api.RelationTuple;
 import zanzibar.huynhvy.api.WatchEvent;
@@ -16,7 +17,7 @@ import zanzibar.huynhvy.watch.stream.StreamRegistry;
 
 class StreamRegistryTest {
 
-  private final StreamRegistry registry = new StreamRegistry();
+  private final StreamRegistry registry = new StreamRegistry(new SimpleMeterRegistry());
 
   @Test
   void fans_out_only_to_streams_watching_the_namespace() {

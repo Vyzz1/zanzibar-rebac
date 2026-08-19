@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.domain.Zookie;
+import zanzibar.huynhvy.tuplestore.metrics.TupleStoreMetrics;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxEvent;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxRepository;
 import zanzibar.huynhvy.tuplestore.outbox.TupleChangeType;
@@ -23,6 +24,7 @@ public class WriteTuplesUseCase {
   private final ZookieMinter zookieMinter;
   private final ObjectMapper objectMapper;
   private final NamespaceRelationsProvider relationsProvider;
+  private final TupleStoreMetrics metrics;
   private final boolean validationEnabled;
 
   public WriteTuplesUseCase(
@@ -31,12 +33,14 @@ public class WriteTuplesUseCase {
       ZookieMinter zookieMinter,
       ObjectMapper objectMapper,
       NamespaceRelationsProvider relationsProvider,
+      TupleStoreMetrics metrics,
       @Value("${tuple.validation.enabled:true}") boolean validationEnabled) {
     this.tupleWriteRepository = tupleWriteRepository;
     this.outboxRepository = outboxRepository;
     this.zookieMinter = zookieMinter;
     this.objectMapper = objectMapper;
     this.relationsProvider = relationsProvider;
+    this.metrics = metrics;
     this.validationEnabled = validationEnabled;
   }
 
@@ -62,6 +66,7 @@ public class WriteTuplesUseCase {
               Tuples.aggregateId(tuple),
               TupleChangeType.CREATED.eventType(),
               Tuples.toJson(objectMapper, tuple)));
+      metrics.tupleWritten();
       log.info("Wrote tuple {} committed at {}", tuple, commitTimestamp);
     }
 

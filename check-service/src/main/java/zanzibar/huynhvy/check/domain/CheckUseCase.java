@@ -1,5 +1,6 @@
 package zanzibar.huynhvy.check.domain;
 
+import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import zanzibar.huynhvy.check.cache.CacheKeyStrategy;
 import zanzibar.huynhvy.check.cache.CachedCheck;
 import zanzibar.huynhvy.check.cache.TupleCache;
+import zanzibar.huynhvy.check.metrics.CheckMetrics;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
 import zanzibar.huynhvy.shared.domain.Zookie;
 import zanzibar.huynhvy.shared.security.ZookieValidator;
@@ -32,6 +34,7 @@ public class CheckUseCase {
   private final TupleCache tupleCache;
   private final CacheKeyStrategy cacheKeyStrategy;
   private final SnapshotClock snapshotClock;
+  private final CheckMetrics metrics;
   private final boolean cacheEnabled;
   private final Duration cacheTtl;
 
@@ -42,6 +45,7 @@ public class CheckUseCase {
       TupleCache tupleCache,
       CacheKeyStrategy cacheKeyStrategy,
       SnapshotClock snapshotClock,
+      CheckMetrics metrics,
       @Value("${check.cache.enabled:true}") boolean cacheEnabled,
       @Value("${check.cache.ttl-seconds:60}") long cacheTtlSeconds) {
     this.graphTraverser = graphTraverser;
@@ -50,6 +54,7 @@ public class CheckUseCase {
     this.tupleCache = tupleCache;
     this.cacheKeyStrategy = cacheKeyStrategy;
     this.snapshotClock = snapshotClock;
+    this.metrics = metrics;
     this.cacheEnabled = cacheEnabled;
     this.cacheTtl = Duration.ofSeconds(cacheTtlSeconds);
   }
@@ -59,6 +64,13 @@ public class CheckUseCase {
    *     freshness floor
    */
   public boolean check(RelationTuple tuple, String zookie) {
+    Timer.Sample sample = metrics.start();
+    boolean allowed = doCheck(tuple, zookie); // a failure (bad Zookie) is not timed as a result
+    metrics.record(sample, allowed);
+    return allowed;
+  }
+
+  private boolean doCheck(RelationTuple tuple, String zookie) {
     OptionalLong freshnessFloor = OptionalLong.empty();
     if (zookie != null && !zookie.isBlank()) {
       freshnessFloor = zookieValidator.readTimestampNanos(new Zookie(zookie));
@@ -73,9 +85,15 @@ public class CheckUseCase {
 
     String key = cacheKeyStrategy.key(tuple);
     Optional<CachedCheck> cached = tupleCache.get(key);
-    if (cached.isPresent() && isFreshEnough(cached.get(), freshnessFloor)) {
-      log.debug("Check {} -> {} (cache hit)", tuple, cached.get().allowed());
-      return cached.get().allowed();
+    if (cached.isPresent()) {
+      if (isFreshEnough(cached.get(), freshnessFloor)) {
+        metrics.cacheHit();
+        log.debug("Check {} -> {} (cache hit)", tuple, cached.get().allowed());
+        return cached.get().allowed();
+      }
+      metrics.cacheStale(); // present but older than the caller's Zookie
+    } else {
+      metrics.cacheMiss();
     }
 
     // Stamp the snapshot BEFORE evaluating so it never claims to be fresher than the data read.

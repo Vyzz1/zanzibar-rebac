@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import zanzibar.huynhvy.tuplestore.metrics.TupleStoreMetrics;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxEvent;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxPoller;
 import zanzibar.huynhvy.tuplestore.outbox.OutboxRepository;
@@ -23,6 +24,8 @@ class OutboxPollerTest {
   @Mock private OutboxRepository outboxRepository;
 
   @Mock private TupleEventPublisher publisher;
+
+  @Mock private TupleStoreMetrics metrics;
 
   @InjectMocks private OutboxPoller poller;
 
