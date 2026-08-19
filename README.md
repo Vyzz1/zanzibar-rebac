@@ -116,7 +116,7 @@ WriteTuples / DeleteTuples (tuple-store)
 | RPC | gRPC via `net.devh` grpc-server / grpc-client starters |
 | Reads / Writes | Spring Data JPA (reads) · JOOQ (tuple writes, `RETURNING`) |
 | Cache | Redis |
-| Messaging | RabbitMQ (Spring AMQP), fanout exchange |
+| Messaging | RabbitMQ (Spring AMQP) — fanout exchange; watch-service reads a **stream queue** (retained log) |
 | Database | PostgreSQL 16 — one DB, a schema + least-privilege role per service |
 | Config storage | JSONB (namespace configs), append-only versioned |
 | Observability | Micrometer + OpenTelemetry (Prometheus scrape) |

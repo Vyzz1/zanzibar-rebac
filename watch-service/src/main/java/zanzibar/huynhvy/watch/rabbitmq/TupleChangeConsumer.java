@@ -9,6 +9,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import zanzibar.huynhvy.api.WatchEvent;
 import zanzibar.huynhvy.shared.domain.RelationTuple;
+import zanzibar.huynhvy.watch.config.RabbitConfig;
 import zanzibar.huynhvy.watch.stream.StreamRegistry;
 
 /**
@@ -23,7 +24,9 @@ public class TupleChangeConsumer {
   private final ObjectMapper objectMapper;
   private final StreamRegistry registry;
 
-  @RabbitListener(queues = "#{watchQueue.name}")
+  @RabbitListener(
+      queues = RabbitConfig.WATCH_STREAM,
+      containerFactory = RabbitConfig.STREAM_LISTENER_FACTORY)
   public void consume(
       String message, @Header(name = "operation", required = false) String operation) {
     RelationTuple tuple;
