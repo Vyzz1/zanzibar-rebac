@@ -18,6 +18,7 @@ import zanzibar.huynhvy.api.GetNamespaceConfigResponse;
 import zanzibar.huynhvy.api.NamespaceServiceGrpc;
 import zanzibar.huynhvy.namespace.domain.NamespaceConfig;
 import zanzibar.huynhvy.namespace.repository.NamespaceConfigRepository;
+import zanzibar.huynhvy.shared.security.AuthClientInterceptor;
 import zanzibar.huynhvy.shared.testing.BaseIntegrationTest;
 
 /**
@@ -33,16 +34,38 @@ class NamespaceConfigGrpcServiceIntegrationTest extends BaseIntegrationTest {
 
   private ManagedChannel channel;
   private NamespaceServiceGrpc.NamespaceServiceBlockingStub stub;
+  private ManagedChannel anonymousChannel;
+  private NamespaceServiceGrpc.NamespaceServiceBlockingStub anonymousStub;
 
   @BeforeEach
   void setUp() {
-    channel = InProcessChannelBuilder.forName("nsm-test").directExecutor().build();
+    // The channel presents this service's token, exactly as a real caller must.
+    channel =
+        InProcessChannelBuilder.forName("nsm-test")
+            .directExecutor()
+            .intercept(new AuthClientInterceptor("dev-only-token-change-me"))
+            .build();
     stub = NamespaceServiceGrpc.newBlockingStub(channel);
+
+    anonymousChannel = InProcessChannelBuilder.forName("nsm-test").directExecutor().build();
+    anonymousStub = NamespaceServiceGrpc.newBlockingStub(anonymousChannel);
+  }
+
+  @Test
+  void a_call_without_a_token_is_unauthenticated() {
+    assertThatThrownBy(
+            () ->
+                anonymousStub.getNamespaceConfig(
+                    GetNamespaceConfigRequest.newBuilder().setNamespace("doc-grpc").build()))
+        .isInstanceOf(StatusRuntimeException.class)
+        .extracting(e -> ((StatusRuntimeException) e).getStatus().getCode())
+        .isEqualTo(Status.Code.UNAUTHENTICATED);
   }
 
   @AfterEach
   void tearDown() {
     channel.shutdownNow();
+    anonymousChannel.shutdownNow();
   }
 
   @Test

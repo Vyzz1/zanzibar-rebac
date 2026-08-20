@@ -51,3 +51,14 @@ management:
 # HMAC key used to sign Zookies. Override via ZOOKIE_SECRET in real environments.
 zookie:
   secret: ${ZOOKIE_SECRET:dev-only-secret-change-me}
+
+# Callers present `Authorization: Bearer <token>`. Scopes: read (ask), write (change grants),
+# admin (change namespace config). The dev default is a single all-scope token — override in real
+# environments, or set auth.enabled=false locally to bypass entirely.
+auth:
+  enabled: ${AUTH_ENABLED:true}
+  outbound-token: ${API_TOKEN:dev-only-token-change-me}
+  clients:
+    - name: dev
+      token: ${API_TOKEN:dev-only-token-change-me}
+      scopes: [read, write, admin]

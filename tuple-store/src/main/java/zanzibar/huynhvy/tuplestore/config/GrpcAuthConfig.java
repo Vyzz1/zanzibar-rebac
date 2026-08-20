@@ -1,4 +1,4 @@
-package zanzibar.huynhvy.check.config;
+package zanzibar.huynhvy.tuplestore.config;
 
 import io.grpc.ClientInterceptor;
 import io.grpc.ServerInterceptor;
@@ -14,7 +14,7 @@ import zanzibar.huynhvy.shared.security.AuthServerInterceptor;
 
 /** Authenticates inbound gRPC calls, and presents this service's token on outbound ones. */
 @Configuration
-public class GrpcServerConfig {
+public class GrpcAuthConfig {
 
   @Bean
   @GrpcGlobalServerInterceptor
@@ -23,7 +23,7 @@ public class GrpcServerConfig {
     return new AuthServerInterceptor(authenticator, failures);
   }
 
-  /** check-service calls namespace-manager for config, which now requires credentials. */
+  /** tuple-store calls namespace-manager to validate a write's relation. */
   @Bean
   @GrpcGlobalClientInterceptor
   public ClientInterceptor authClientInterceptor(AuthProperties properties) {

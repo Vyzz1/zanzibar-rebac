@@ -191,6 +191,39 @@ grpcurl -plaintext -d '{"namespace":"doc","objectId":"report.pdf","relation":"vi
 
 ---
 
+## Authentication
+
+Callers are other services, so the API uses **pre-shared bearer tokens** with scopes —
+`Authorization: Bearer <token>` on gRPC metadata and HTTP headers alike.
+
+```yaml
+auth:
+  enabled: true
+  outbound-token: ${API_TOKEN}      # this service's own token for internal calls
+  clients:
+    - name: app-backend
+      token: ${WRITER_TOKEN}
+      scopes: [read, write]
+```
+
+| Scope | Grants |
+|---|---|
+| `read` | Check, BatchCheck, ReadTuples, Expand, Watch, GetNamespaceConfig |
+| `write` | WriteTuples, DeleteTuples |
+| `admin` | namespace config writes (`PUT /api/v1/namespaces/{ns}`) |
+
+Scopes are **not** hierarchical — a client lists exactly what it needs. Without the scope
+split, anything able to `Check` could also `WriteTuples` and grant itself access. An
+unknown token is `UNAUTHENTICATED` / `401`; a known client missing the scope is
+`PERMISSION_DENIED` / `403`. Unclassified gRPC methods fall closed (require `admin`), and
+`/actuator/health` plus the gRPC health service stay open for probes. Rejections are
+counted in `zanzibar.auth.rejected{reason}`.
+
+Set `AUTH_ENABLED=false` to bypass auth locally. Transport is still plaintext — **mTLS and
+OIDC are not implemented**; the token model is the upgrade point.
+
+---
+
 ## Core concepts
 
 - **RelationTuple** — the atomic unit, e.g.
