@@ -294,5 +294,7 @@ Logging is configured once for all services in
 
 Always log through SLF4J — never `System.out.println` (Checkstyle enforces this).
 
+Measured check-path results are in [`BENCHMARK.md`](BENCHMARK.md), reproducible with `make bench`.
+
 See [`CLAUDE.md`](CLAUDE.md) for detailed coding conventions and
 [`AGENTS.md`](AGENTS.md) for per-service ownership boundaries.
