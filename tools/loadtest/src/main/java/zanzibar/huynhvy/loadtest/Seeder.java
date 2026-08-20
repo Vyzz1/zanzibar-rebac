@@ -8,13 +8,17 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import zanzibar.huynhvy.api.AuthorizationServiceGrpc;
+import zanzibar.huynhvy.api.DeleteTuplesRequest;
 import zanzibar.huynhvy.api.RelationTuple;
 import zanzibar.huynhvy.api.WriteTuplesRequest;
 
 /**
  * Puts the fixture in place: a namespace whose {@code viewer} is partly derived, and the tuples the
- * scenarios check against. Seeding is idempotent enough to re-run — namespace configs are versioned
- * and duplicate tuples are harmless for these measurements.
+ * scenarios check against.
+ *
+ * <p>Tuples are deleted before being written, because {@code relation_tuples} is unique on
+ * (namespace, object, relation, subject) and a second run would otherwise collide. Deleting a tuple
+ * that is not there is a no-op, so this works on an empty database too.
  */
 final class Seeder {
 
@@ -34,18 +38,19 @@ final class Seeder {
 
   void seed() throws IOException, InterruptedException {
     putNamespaceConfig();
-    writeStub.writeTuples(
-        WriteTuplesRequest.newBuilder()
-            .addAllTuples(
-                List.of(
-                    // Direct: bob is written straight onto the object.
-                    tuple(config.namespace(), config.objectId(), "viewer", "user:bob"),
-                    // Derived: alice is an editor, and editors are viewers.
-                    tuple(config.namespace(), config.objectId(), "editor", "user:alice"),
-                    // Group: the object grants viewer to a userset carol belongs to.
-                    tuple(config.groupNamespace(), config.objectId(), "viewer", "group:eng#member"),
-                    tuple("group", "eng", "member", "user:carol")))
-            .build());
+
+    List<RelationTuple> fixture =
+        List.of(
+            // Direct: bob is written straight onto the object.
+            tuple(config.namespace(), config.objectId(), "viewer", "user:bob"),
+            // Derived: alice is an editor, and editors are viewers.
+            tuple(config.namespace(), config.objectId(), "editor", "user:alice"),
+            // Group: the object grants viewer to a userset carol belongs to.
+            tuple(config.groupNamespace(), config.objectId(), "viewer", "group:eng#member"),
+            tuple("group", "eng", "member", "user:carol"));
+
+    writeStub.deleteTuples(DeleteTuplesRequest.newBuilder().addAllTuples(fixture).build());
+    writeStub.writeTuples(WriteTuplesRequest.newBuilder().addAllTuples(fixture).build());
   }
 
   private void putNamespaceConfig() throws IOException, InterruptedException {

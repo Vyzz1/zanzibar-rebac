@@ -55,6 +55,8 @@ scenarios ask about) before measuring, so a fresh database is fine.
 | `--concurrency` | `32` virtual threads |
 | `--duration` / `--warmup` | `20` / `5` seconds per scenario |
 
+Recorded results live in [`BENCHMARK.md`](../../BENCHMARK.md).
+
 ## Reading the output
 
 Every scenario is warmed up first and those samples are discarded — on the JVM the first seconds
