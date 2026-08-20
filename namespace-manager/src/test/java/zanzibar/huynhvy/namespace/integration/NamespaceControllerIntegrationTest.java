@@ -14,6 +14,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.TestPropertySource;
 import zanzibar.huynhvy.shared.testing.BaseIntegrationTest;
 
 /**
@@ -25,6 +26,15 @@ import zanzibar.huynhvy.shared.testing.BaseIntegrationTest;
  * Java-side serialization that erasure could quietly break.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestPropertySource(
+    properties = {
+      "auth.clients[0].name=admin",
+      "auth.clients[0].token=admin-token",
+      "auth.clients[0].scopes=read,write,admin",
+      "auth.clients[1].name=reader",
+      "auth.clients[1].token=reader-token",
+      "auth.clients[1].scopes=read"
+    })
 class NamespaceControllerIntegrationTest extends BaseIntegrationTest {
 
   // viewer = union(this, computedUserset(editor)); editor = this. All refs defined, no cycle.
@@ -54,6 +64,9 @@ class NamespaceControllerIntegrationTest extends BaseIntegrationTest {
       { "viewer": { "computedUserset": { "relation": "owner" } } }
       """;
 
+  private static final String ADMIN_TOKEN = "admin-token";
+  private static final String READER_TOKEN = "reader-token";
+
   private final ObjectMapper mapper = new ObjectMapper();
 
   @Autowired private TestRestTemplate rest;
@@ -64,7 +77,7 @@ class NamespaceControllerIntegrationTest extends BaseIntegrationTest {
     assertThat(put.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(versionOf(put)).isEqualTo(1);
 
-    ResponseEntity<String> get = rest.getForEntity("/api/v1/namespaces/doc-basic", String.class);
+    ResponseEntity<String> get = get("/api/v1/namespaces/doc-basic", String.class);
     assertThat(get.getStatusCode()).isEqualTo(HttpStatus.OK);
 
     JsonNode body = mapper.readTree(get.getBody());
@@ -80,13 +93,11 @@ class NamespaceControllerIntegrationTest extends BaseIntegrationTest {
     assertThat(versionOf(put("doc-versioned", VALID_CONFIG))).isEqualTo(1);
     assertThat(versionOf(put("doc-versioned", VALID_CONFIG))).isEqualTo(2);
 
-    ResponseEntity<String> latest =
-        rest.getForEntity("/api/v1/namespaces/doc-versioned", String.class);
+    ResponseEntity<String> latest = get("/api/v1/namespaces/doc-versioned", String.class);
     assertThat(mapper.readTree(latest.getBody()).get("version").asInt()).isEqualTo(2);
 
     // The older version is still retrievable — writes are append-only.
-    ResponseEntity<String> v1 =
-        rest.getForEntity("/api/v1/namespaces/doc-versioned/versions/1", String.class);
+    ResponseEntity<String> v1 = get("/api/v1/namespaces/doc-versioned/versions/1", String.class);
     assertThat(v1.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(mapper.readTree(v1.getBody()).get("version").asInt()).isEqualTo(1);
   }
@@ -104,18 +115,48 @@ class NamespaceControllerIntegrationTest extends BaseIntegrationTest {
 
   @Test
   void get_of_an_unknown_namespace_returns_404() {
-    assertThat(rest.getForEntity("/api/v1/namespaces/does-not-exist", String.class).getStatusCode())
+    assertThat(get("/api/v1/namespaces/does-not-exist", String.class).getStatusCode())
         .isEqualTo(HttpStatus.NOT_FOUND);
   }
 
+  @Test
+  void a_request_without_a_token_is_unauthorized() {
+    assertThat(exchange(HttpMethod.GET, "/api/v1/namespaces/doc-basic", null, null).getStatusCode())
+        .isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void a_read_only_token_may_read_but_not_change_a_namespace() {
+    put("doc-scoped", VALID_CONFIG); // seeded by the admin token
+
+    assertThat(
+            exchange(HttpMethod.GET, "/api/v1/namespaces/doc-scoped", null, READER_TOKEN)
+                .getStatusCode())
+        .isEqualTo(HttpStatus.OK);
+
+    // Editing a namespace config rewrites how every relation is derived, so it needs admin.
+    assertThat(
+            exchange(HttpMethod.PUT, "/api/v1/namespaces/doc-scoped", VALID_CONFIG, READER_TOKEN)
+                .getStatusCode())
+        .isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
   private ResponseEntity<String> put(String namespace, String body) {
+    return exchange(HttpMethod.PUT, "/api/v1/namespaces/" + namespace, body, ADMIN_TOKEN);
+  }
+
+  private ResponseEntity<String> get(String path, Class<String> type) {
+    return exchange(HttpMethod.GET, path, null, ADMIN_TOKEN);
+  }
+
+  private ResponseEntity<String> exchange(
+      HttpMethod method, String path, String body, String token) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    return rest.exchange(
-        "/api/v1/namespaces/" + namespace,
-        HttpMethod.PUT,
-        new HttpEntity<>(body, headers),
-        String.class);
+    if (token != null) {
+      headers.setBearerAuth(token);
+    }
+    return rest.exchange(path, method, new HttpEntity<>(body, headers), String.class);
   }
 
   private int versionOf(ResponseEntity<String> response) throws Exception {
