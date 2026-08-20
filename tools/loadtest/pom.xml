@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>zanzibar.huynhvy</groupId>
+        <artifactId>zanzibar-rebac</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <groupId>zanzibar.huynhvy.tools</groupId>
+    <artifactId>loadtest</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>zanzibar.huynhvy.api</groupId>
+            <artifactId>zanzibar-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>zanzibar.huynhvy.shared</groupId>
+            <artifactId>zanzibar-shared</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>zanzibar.huynhvy.loadtest.LoadTest</mainClass>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <configuration>
+                    <!--
+                      The no-System.out rule keeps stray debugging out of the services. This is a
+                      console tool whose report IS stdout, so the reporting class is exempt; every
+                      other file here is still checked.
+                    -->
+                    <excludes>**/LoadTest.java</excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
