@@ -1,4 +1,4 @@
-package zanzibar.huynhvy.shared.security;
+package zanzibar.huynhvy.shared.auth;
 
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;

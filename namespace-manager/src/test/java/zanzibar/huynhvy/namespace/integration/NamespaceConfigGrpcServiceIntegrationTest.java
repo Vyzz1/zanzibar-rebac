@@ -18,7 +18,7 @@ import zanzibar.huynhvy.api.GetNamespaceConfigResponse;
 import zanzibar.huynhvy.api.NamespaceServiceGrpc;
 import zanzibar.huynhvy.namespace.domain.NamespaceConfig;
 import zanzibar.huynhvy.namespace.repository.NamespaceConfigRepository;
-import zanzibar.huynhvy.shared.security.AuthClientInterceptor;
+import zanzibar.huynhvy.shared.auth.AuthClientInterceptor;
 import zanzibar.huynhvy.shared.testing.BaseIntegrationTest;
 
 /**

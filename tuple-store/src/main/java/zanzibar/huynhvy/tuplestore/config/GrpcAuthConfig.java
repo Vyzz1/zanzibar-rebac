@@ -6,11 +6,11 @@ import net.devh.boot.grpc.client.interceptor.GrpcGlobalClientInterceptor;
 import net.devh.boot.grpc.server.interceptor.GrpcGlobalServerInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import zanzibar.huynhvy.shared.security.ApiTokenAuthenticator;
-import zanzibar.huynhvy.shared.security.AuthClientInterceptor;
-import zanzibar.huynhvy.shared.security.AuthFailureRecorder;
-import zanzibar.huynhvy.shared.security.AuthProperties;
-import zanzibar.huynhvy.shared.security.AuthServerInterceptor;
+import zanzibar.huynhvy.shared.auth.ApiTokenAuthenticator;
+import zanzibar.huynhvy.shared.auth.AuthClientInterceptor;
+import zanzibar.huynhvy.shared.auth.AuthFailureRecorder;
+import zanzibar.huynhvy.shared.auth.AuthProperties;
+import zanzibar.huynhvy.shared.auth.AuthServerInterceptor;
 
 /** Authenticates inbound gRPC calls, and presents this service's token on outbound ones. */
 @Configuration

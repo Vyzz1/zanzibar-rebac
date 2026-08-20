@@ -1,4 +1,4 @@
-package zanzibar.huynhvy.shared.security;
+package zanzibar.huynhvy.shared.auth;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;

@@ -1,4 +1,4 @@
-package zanzibar.huynhvy.shared.security;
+package zanzibar.huynhvy.shared.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

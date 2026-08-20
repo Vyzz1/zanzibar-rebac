@@ -1,4 +1,4 @@
-package zanzibar.huynhvy.shared.security;
+package zanzibar.huynhvy.shared.auth;
 
 import io.grpc.Metadata;
 import io.grpc.ServerCall;

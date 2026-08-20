@@ -12,10 +12,10 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import zanzibar.huynhvy.shared.security.ApiClient;
-import zanzibar.huynhvy.shared.security.ApiScope;
-import zanzibar.huynhvy.shared.security.ApiTokenAuthenticator;
-import zanzibar.huynhvy.shared.security.AuthFailureRecorder;
+import zanzibar.huynhvy.shared.auth.ApiClient;
+import zanzibar.huynhvy.shared.auth.ApiScope;
+import zanzibar.huynhvy.shared.auth.ApiTokenAuthenticator;
+import zanzibar.huynhvy.shared.auth.AuthFailureRecorder;
 
 /**
  * Applies the same token model as the gRPC interceptor to the config REST API. Reading a namespace

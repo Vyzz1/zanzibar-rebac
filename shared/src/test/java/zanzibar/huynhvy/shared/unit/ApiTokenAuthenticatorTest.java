@@ -5,11 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import zanzibar.huynhvy.shared.security.ApiClient;
-import zanzibar.huynhvy.shared.security.ApiScope;
-import zanzibar.huynhvy.shared.security.ApiTokenAuthenticator;
-import zanzibar.huynhvy.shared.security.AuthProperties;
-import zanzibar.huynhvy.shared.security.GrpcMethodScopes;
+import zanzibar.huynhvy.shared.auth.ApiClient;
+import zanzibar.huynhvy.shared.auth.ApiScope;
+import zanzibar.huynhvy.shared.auth.ApiTokenAuthenticator;
+import zanzibar.huynhvy.shared.auth.AuthProperties;
+import zanzibar.huynhvy.shared.auth.GrpcMethodScopes;
 
 class ApiTokenAuthenticatorTest {
 

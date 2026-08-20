@@ -1,4 +1,4 @@
-package zanzibar.huynhvy.shared.security;
+package zanzibar.huynhvy.shared.auth;
 
 /**
  * What a calling service is allowed to do with the API. Scopes do not imply one another — a client
