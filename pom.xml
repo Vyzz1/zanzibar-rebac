@@ -14,6 +14,7 @@
         <module>tuple-store</module>
         <module>watch-service</module>
         <module>namespace-manager</module>
+        <module>tools/loadtest</module>
     </modules>
 
     <properties>
