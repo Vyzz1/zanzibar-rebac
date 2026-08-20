@@ -32,7 +32,7 @@
         <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
         <google-java-format.version>1.22.0</google-java-format.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
-        <checkstyle.version>10.21.0</checkstyle.version>
+        <checkstyle.version>13.11.0</checkstyle.version>
         <!-- 3.25.5 patches CVE-2024-7254 (protobuf StackOverflow DoS). -->
         <protobuf.version>3.25.5</protobuf.version>
         <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
