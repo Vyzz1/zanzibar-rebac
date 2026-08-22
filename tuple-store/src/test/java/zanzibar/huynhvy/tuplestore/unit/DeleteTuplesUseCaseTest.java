@@ -67,6 +67,9 @@ class DeleteTuplesUseCaseTest {
     verify(outboxRepository).save(captor.capture());
     assertThat(captor.getValue().getEventType()).isEqualTo("TUPLE_DELETED");
     assertThat(captor.getValue().getPayload()).contains("report.pdf").contains("viewer");
+    // The event carries the same moment the returned Zookie names, so a client resuming from the
+    // event lands exactly where a client resuming from the write's Zookie would.
+    assertThat(captor.getValue().getCommitTimestamp()).isEqualTo(NOW);
   }
 
   @Test

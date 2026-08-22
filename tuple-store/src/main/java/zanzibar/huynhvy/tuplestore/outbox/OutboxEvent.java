@@ -38,6 +38,10 @@ public class OutboxEvent {
   @Column(nullable = false, columnDefinition = "jsonb")
   private String payload;
 
+  /** When the change committed. Null on rows written before this column existed. */
+  @Column(name = "commit_timestamp")
+  private OffsetDateTime commitTimestamp;
+
   @Column(name = "created_at", nullable = false)
   private OffsetDateTime createdAt;
 
@@ -47,12 +51,19 @@ public class OutboxEvent {
   @Column(name = "published_at")
   private OffsetDateTime publishedAt;
 
-  /** Creates a new, unpublished event stamped with the current time. */
-  public static OutboxEvent create(String aggregateId, String eventType, String payload) {
+  /**
+   * Creates a new, unpublished event.
+   *
+   * @param commitTimestamp when the change committed, used to mint the resume token consumers get
+   *     with the event — distinct from {@code createdAt}, which is merely when this row was built
+   */
+  public static OutboxEvent create(
+      String aggregateId, String eventType, String payload, OffsetDateTime commitTimestamp) {
     OutboxEvent event = new OutboxEvent();
     event.aggregateId = aggregateId;
     event.eventType = eventType;
     event.payload = payload;
+    event.commitTimestamp = commitTimestamp;
     event.createdAt = OffsetDateTime.now();
     event.published = false;
     return event;

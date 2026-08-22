@@ -65,7 +65,8 @@ public class WriteTuplesUseCase {
           OutboxEvent.create(
               Tuples.aggregateId(tuple),
               TupleChangeType.CREATED.eventType(),
-              Tuples.toJson(objectMapper, tuple)));
+              Tuples.toJson(objectMapper, tuple),
+              commitTimestamp));
       metrics.tupleWritten();
       log.info("Wrote tuple {} committed at {}", tuple, commitTimestamp);
     }
