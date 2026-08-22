@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AmqpAdmin;
@@ -82,7 +83,10 @@ class OutboxPollerIntegrationTest extends BaseIntegrationTest {
 
   @Test
   void a_published_event_carries_a_zookie_for_the_moment_it_committed() {
-    OffsetDateTime committedAt = OffsetDateTime.now();
+    // TIMESTAMPTZ keeps microseconds, so a nanosecond-precision value would come back from the
+    // poller's read already rounded and mint a different token than the one asserted here. In
+    // production the timestamp always originates in Postgres, so both sides match by construction.
+    OffsetDateTime committedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS);
     outboxRepository.save(OutboxEvent.create("agg", "TUPLE_CREATED", "{}", committedAt));
 
     poller.poll();
