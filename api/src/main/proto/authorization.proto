@@ -76,6 +76,14 @@ message DeleteTuplesResponse {
 message WatchRequest {
   string namespace = 1;
   // Resume cursor; empty means "from now on".
+  //
+  // The cursor is INCLUSIVE: resuming replays the event this token came from, so a client that
+  // reconnects always sees its last processed event again. Handlers must therefore be idempotent.
+  // This direction is deliberate — an off-by-one here duplicates an event rather than losing one.
+  //
+  // A cursor older than the retention window is rejected with OUT_OF_RANGE instead of silently
+  // resuming past the gap; a client that gets it has to reconcile from ReadTuples rather than
+  // assume it is up to date. A token that fails its signature check is INVALID_ARGUMENT.
   string zookie = 2;
 }
 
@@ -87,6 +95,11 @@ message WatchEvent {
   }
   Operation operation = 1;
   RelationTuple tuple = 2;
+  // Cursor for this event: pass it back as WatchRequest.zookie to resume from here. A client that
+  // only watches has no writes of its own to take a token from, so this is its only cursor.
+  //
+  // Empty for changes enqueued before the server recorded commit timestamps — those publish with
+  // no token rather than a wrong one. Keep the last non-empty token you saw.
   string zookie = 3;
 }
 
