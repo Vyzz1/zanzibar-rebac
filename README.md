@@ -39,8 +39,10 @@ The core question this system answers:
 - **Resumable Watch** — changes stream from a RabbitMQ **stream queue** (a retained
   log). Every event carries its own Zookie, so a client that only watches can resume
   from the last event it processed; pass it back and Watch replays everything since
-  before going live. A cursor older than the retention window is rejected
-  (`OUT_OF_RANGE`) rather than silently skipping the gap.
+  before going live. The cursor is **inclusive** — a reconnect replays the event the
+  token came from, so handlers must be idempotent; the trade is chosen so an
+  off-by-one duplicates rather than loses. A cursor older than the retention window
+  is rejected (`OUT_OF_RANGE`) rather than silently skipping the gap.
 - **Reliability** — tuple changes are published via the **outbox pattern**
   (tuple + event in one transaction, drained by a poller) to a **fanout exchange**,
   so every consumer (watch-service, check-service) gets every event.
