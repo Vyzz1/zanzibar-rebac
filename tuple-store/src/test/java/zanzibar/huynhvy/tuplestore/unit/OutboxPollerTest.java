@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,8 +41,8 @@ class OutboxPollerTest {
 
   @Test
   void publishes_and_marks_every_fetched_event() {
-    OutboxEvent first = OutboxEvent.create("a", "TUPLE_CREATED", "{}");
-    OutboxEvent second = OutboxEvent.create("b", "TUPLE_CREATED", "{}");
+    OutboxEvent first = OutboxEvent.create("a", "TUPLE_CREATED", "{}", OffsetDateTime.now());
+    OutboxEvent second = OutboxEvent.create("b", "TUPLE_CREATED", "{}", OffsetDateTime.now());
     when(outboxRepository.findUnpublishedForUpdate(anyInt())).thenReturn(List.of(first, second));
 
     poller.poll();

@@ -30,6 +30,11 @@ import zanzibar.huynhvy.watch.config.RabbitConfig;
 @Component
 public class WatchSubscriber {
 
+  // Set by tuple-store when it publishes. Duplicated rather than imported — services share a wire
+  // contract, never a Maven module.
+  private static final String OPERATION_HEADER = "operation";
+  private static final String ZOOKIE_HEADER = "zookie";
+
   private final ConnectionFactory connectionFactory;
   private final ObjectMapper objectMapper;
   private final int prefetch;
@@ -88,9 +93,14 @@ public class WatchSubscriber {
       return; // the stream carries every namespace
     }
 
-    Object operation = message.getMessageProperties().getHeader("operation");
+    Object operation = message.getMessageProperties().getHeader(OPERATION_HEADER);
+    Object zookie = message.getMessageProperties().getHeader(ZOOKIE_HEADER);
     try {
-      observer.onNext(toEvent(tuple, operation == null ? null : operation.toString()));
+      observer.onNext(
+          toEvent(
+              tuple,
+              operation == null ? null : operation.toString(),
+              zookie == null ? null : zookie.toString()));
       eventsDelivered.increment();
     } catch (RuntimeException e) {
       // The client is gone; its cancel handler stops this container shortly.
@@ -98,17 +108,27 @@ public class WatchSubscriber {
     }
   }
 
-  private WatchEvent toEvent(RelationTuple tuple, String operation) {
-    return WatchEvent.newBuilder()
-        .setOperation(operationOf(operation))
-        .setTuple(
-            zanzibar.huynhvy.api.RelationTuple.newBuilder()
-                .setNamespace(tuple.namespace())
-                .setObjectId(tuple.objectId())
-                .setRelation(tuple.relation())
-                .setSubjectId(tuple.subjectId())
-                .build())
-        .build();
+  /**
+   * The Zookie is copied straight from the header, never minted here: only tuple-store holds the
+   * authority to sign one, and only it knows when the change actually committed. An event published
+   * before the outbox carried that timestamp arrives without one, and is delivered with the field
+   * left empty rather than with a guessed token a client would resume from wrongly.
+   */
+  private WatchEvent toEvent(RelationTuple tuple, String operation, String zookie) {
+    WatchEvent.Builder event =
+        WatchEvent.newBuilder()
+            .setOperation(operationOf(operation))
+            .setTuple(
+                zanzibar.huynhvy.api.RelationTuple.newBuilder()
+                    .setNamespace(tuple.namespace())
+                    .setObjectId(tuple.objectId())
+                    .setRelation(tuple.relation())
+                    .setSubjectId(tuple.subjectId())
+                    .build());
+    if (zookie != null) {
+      event.setZookie(zookie);
+    }
+    return event.build();
   }
 
   private WatchEvent.Operation operationOf(String operation) {

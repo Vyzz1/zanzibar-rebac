@@ -82,6 +82,30 @@ class WatchIntegrationTest extends BaseIntegrationTest {
     }
   }
 
+  /**
+   * The point of the whole feature: a pure watcher never writes, so the only cursor it can have is
+   * the one that came with the last event it processed.
+   */
+  @Test
+  void a_client_can_resume_from_the_zookie_that_came_with_an_event() throws Exception {
+    BlockingQueue<WatchEvent> firstRun = new LinkedBlockingQueue<>();
+    String lastProcessed;
+    try (AutoCloseable ignored = subscriber.subscribe("doc", WatchCursor.live(), into(firstRun))) {
+      publish("doc", "seen.pdf", "viewer", "user:bob", "CREATE");
+      lastProcessed = pollFor(firstRun, "seen.pdf").getZookie();
+      assertThat(lastProcessed).isNotEmpty();
+    }
+
+    // Disconnected — and a change happens while it is away.
+    publish("doc", "while-away.pdf", "editor", "user:alice", "CREATE");
+
+    BlockingQueue<WatchEvent> resumed = new LinkedBlockingQueue<>();
+    try (AutoCloseable ignored =
+        subscriber.subscribe("doc", cursorResolver.resolve(lastProcessed), into(resumed))) {
+      assertThat(pollFor(resumed, "while-away.pdf")).isNotNull();
+    }
+  }
+
   @Test
   void a_live_subscription_does_not_replay_earlier_changes() throws Exception {
     publish("doc", "before.pdf", "viewer", "user:bob", "CREATE");
@@ -114,6 +138,7 @@ class WatchIntegrationTest extends BaseIntegrationTest {
 
   private void publish(
       String namespace, String objectId, String relation, String subjectId, String operation) {
+    String zookie = mintZookie(Instant.now());
     rabbitTemplate.convertAndSend(
         RabbitConfig.TUPLE_CHANGES_EXCHANGE,
         "",
@@ -128,6 +153,7 @@ class WatchIntegrationTest extends BaseIntegrationTest {
             + "\"}",
         message -> {
           message.getMessageProperties().setHeader("operation", operation);
+          message.getMessageProperties().setHeader("zookie", zookie);
           return message;
         });
   }

@@ -1,6 +1,8 @@
 package zanzibar.huynhvy.tuplestore.domain;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,19 +40,29 @@ public class DeleteTuplesUseCase {
     }
     tuples.forEach(Tuples::requireComplete);
 
+    List<RelationTuple> removed = new ArrayList<>();
     for (RelationTuple tuple : tuples) {
       int deleted = tupleWriteRepository.delete(tuple);
       if (deleted > 0) {
-        outboxRepository.save(
-            OutboxEvent.create(
-                Tuples.aggregateId(tuple),
-                TupleChangeType.DELETED.eventType(),
-                Tuples.toJson(objectMapper, tuple)));
+        removed.add(tuple);
         metrics.tuplesDeleted(deleted);
         log.info("Deleted tuple {} ({} row(s))", tuple, deleted);
       }
     }
 
-    return zookieMinter.mint(tupleWriteRepository.currentTimestamp());
+    // A DELETE has no RETURNING clause to take a commit timestamp from, so read the transaction's
+    // clock once and stamp both the events and the Zookie with it — a consumer resuming from an
+    // event's token must land at the same point the writer's token names.
+    OffsetDateTime commitTimestamp = tupleWriteRepository.currentTimestamp();
+    for (RelationTuple tuple : removed) {
+      outboxRepository.save(
+          OutboxEvent.create(
+              Tuples.aggregateId(tuple),
+              TupleChangeType.DELETED.eventType(),
+              Tuples.toJson(objectMapper, tuple),
+              commitTimestamp));
+    }
+
+    return zookieMinter.mint(commitTimestamp);
   }
 }
