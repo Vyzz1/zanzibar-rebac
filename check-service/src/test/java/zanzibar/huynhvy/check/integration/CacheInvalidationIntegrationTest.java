@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +46,7 @@ class CacheInvalidationIntegrationTest extends BaseIntegrationTest {
   @Test
   void a_tuple_change_evicts_the_cached_results_for_that_object() {
     String key = "doc:report.pdf:viewer:user:bob";
-    tupleCache.put(key, true, 1L, Duration.ofMinutes(5));
+    tupleCache.put(key, true, 1L, Map.of("doc", 1), Duration.ofMinutes(5));
     assertThat(tupleCache.get(key)).isPresent();
 
     // A change on the same object (different relation/subject) must clear the whole object.
