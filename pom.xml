@@ -29,7 +29,7 @@
         <!-- Ahead of Spring Boot's managed 1.15.10 to patch CVE-2026-40983 (DoS via crafted gRPC
              requests) and CVE-2026-40984 (the same over HTTP) — every service here meters a gRPC
              hot path. -->
-        <micrometer.version>1.15.12</micrometer.version>
+        <micrometer.version>1.17.1</micrometer.version>
         <grpc.version>1.65.0</grpc.version>
         <testcontainers.version>1.21.3</testcontainers.version>
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
