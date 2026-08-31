@@ -22,6 +22,11 @@ spring:
     default-schema: namespace
     locations: classpath:db/migration
     table: flyway_schema_history
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
 server:
   port: 8084

@@ -39,6 +39,14 @@ public class NamespaceConfigProvider {
     return view;
   }
 
+  /**
+   * Drops the cached config for a namespace so the next check reloads it, instead of waiting out
+   * the TTL. Called when namespace-manager announces the rules changed.
+   */
+  public void evict(String namespace) {
+    cache.remove(namespace);
+  }
+
   private NamespaceConfigView load(String namespace) {
     try {
       return client.fetch(namespace);

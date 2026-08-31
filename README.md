@@ -32,10 +32,12 @@ The core question this system answers:
   A Check may pass a Zookie as a freshness floor: a cached result is only served
   when it is at least as fresh as a write the caller has already observed.
 - **Caching** — Check results are cached in Redis and **evicted on tuple changes**
-  (consumed from the event stream), so a revoke takes effect immediately. Each entry
-  also records the config version of every namespace consulted to answer it, so a
-  rewritten rule invalidates it too — a config change touches no tuple and would
-  otherwise evict nothing.
+  (consumed from the event stream), so a revoke takes effect immediately. A namespace
+  config change is published too, on its own exchange, and drops both the cached rules
+  and the answers derived from them — so revoking by rewriting a rule is as immediate
+  as revoking by deleting a tuple. Entries additionally record the config version of
+  every namespace consulted, which catches a rule change reaching in from another
+  namespace.
 - **Revocation** — `DeleteTuples` removes grants and propagates a `DELETE` event.
 - **Introspection** — `ReadTuples` (paginated) lists raw tuples; `Expand` returns
   the effective userset tree for an `object#relation` (admin/debug).
@@ -46,9 +48,12 @@ The core question this system answers:
   token came from, so handlers must be idempotent; the trade is chosen so an
   off-by-one duplicates rather than loses. A cursor older than the retention window
   is rejected (`OUT_OF_RANGE`) rather than silently skipping the gap.
-- **Reliability** — tuple changes are published via the **outbox pattern**
-  (tuple + event in one transaction, drained by a poller) to a **fanout exchange**,
-  so every consumer (watch-service, check-service) gets every event.
+- **Reliability** — both tuple changes and namespace config changes are published
+  via the **outbox pattern** (row + event in one transaction, drained by a poller)
+  to **fanout exchanges**, so every consumer gets every event. Tuple changes go to
+  `tuple-changes` (watch-service, check-service); config changes to
+  `namespace-changes` (check-service) — kept apart so consumers of one never have to
+  parse the other.
 
 ---
 
@@ -75,7 +80,7 @@ zanzibar-rebac/
 | check-service | 8081 | 9091 | Answer checks (Check/BatchCheck), Read & Expand; Redis cache |
 | tuple-store | 8082 | 9092 | Write/Delete tuples (JOOQ) + outbox event publish |
 | watch-service | 8083 | 9093 | Stream tuple changes to clients (consumes RabbitMQ) |
-| namespace-manager | 8084 | 9094 | CRUD + validation + versioning of namespace configs |
+| namespace-manager | 8084 | 9094 | CRUD + validation + versioning of namespace configs + outbox event publish |
 
 ### API surface
 
@@ -113,6 +118,17 @@ WriteTuples / DeleteTuples (tuple-store)
        └─ OutboxPoller → RabbitMQ fanout exchange "tuple-changes"
             ├─ watch-service   → WatchEvent{CREATE|DELETE} to subscribers
             └─ check-service   → evict cached results for that object
+```
+
+Rewriting a rule changes who has access without touching a tuple, so it travels
+its own path — otherwise nothing would tell a cache its answers are obsolete:
+
+```
+PUT /api/v1/namespaces/doc (namespace-manager)
+  └─ config version + outbox event, one transaction
+       └─ NamespaceOutboxPoller → RabbitMQ fanout exchange "namespace-changes"
+            └─ check-service   → drop the cached config for "doc"
+                               → evict every cached result in "doc"
 ```
 
 ---
@@ -244,6 +260,8 @@ OIDC are not implemented**; the token model is the upgrade point.
 - **Outbox pattern** — `tuple-store` writes the tuple and an outbox event in the
   same transaction; `OutboxPoller` (`SELECT … FOR UPDATE SKIP LOCKED`) later
   publishes to the RabbitMQ fanout exchange. No event is lost on a crash.
+  `namespace-manager` does the same for config changes: losing one would leave
+  consumers evaluating against rules that no longer exist.
 
 ---
 

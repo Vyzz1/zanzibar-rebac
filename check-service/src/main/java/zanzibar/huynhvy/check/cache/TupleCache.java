@@ -73,7 +73,24 @@ public class TupleCache {
    * @return the number of keys removed
    */
   public long evictObject(String namespace, String objectId) {
-    String pattern = namespace + ":" + objectId + ":*";
+    return evictMatching(namespace + ":" + objectId + ":*");
+  }
+
+  /**
+   * Evicts every cached Check result in a namespace. Used when its config changes: the rules behind
+   * every answer in it moved at once, so there is no smaller unit to invalidate.
+   *
+   * <p>Answers in <em>other</em> namespaces may also have consulted these rules (a {@code doc}
+   * check expanding a {@code group} userset). Those are not reachable by prefix, and are caught on
+   * read instead — see {@link CachedCheck}.
+   *
+   * @return the number of keys removed
+   */
+  public long evictNamespace(String namespace) {
+    return evictMatching(namespace + ":*");
+  }
+
+  private long evictMatching(String pattern) {
     List<String> keys = new ArrayList<>();
     try (Cursor<String> cursor =
         redis.scan(ScanOptions.scanOptions().match(pattern).count(256).build())) {
