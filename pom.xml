@@ -25,7 +25,7 @@
              instead of inheriting it. -->
         <maven.compiler.parameters>true</maven.compiler.parameters>
         <!-- 3.5.12 patches CVE-2026-22731 and CVE-2026-22733 (actuator auth bypass). -->
-        <spring-boot.version>3.5.12</spring-boot.version>
+        <spring-boot.version>4.1.1</spring-boot.version>
         <!-- Ahead of Spring Boot's managed 1.15.10 to patch CVE-2026-40983 (DoS via crafted gRPC
              requests) and CVE-2026-40984 (the same over HTTP) — every service here meters a gRPC
              hot path. -->
