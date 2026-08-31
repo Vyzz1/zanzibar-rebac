@@ -9,9 +9,11 @@ import org.springframework.stereotype.Component;
  * Meters for the check hot path, exported to Prometheus.
  *
  * <ul>
- *   <li>{@code zanzibar.check.cache{result=hit|stale|miss}} — how often a cached result is served,
- *       rejected because a Zookie demanded something fresher, or absent. A rising {@code stale}
- *       share means callers are frequently reading right after their own writes.
+ *   <li>{@code zanzibar.check.cache{result=hit|stale|config_changed|miss}} — how often a cached
+ *       result is served, rejected because a Zookie demanded something fresher, rejected because a
+ *       namespace config it relied on changed, or absent. A rising {@code stale} share means
+ *       callers are frequently reading right after their own writes; {@code config_changed} spikes
+ *       after a namespace config is published and should settle back to zero.
  *   <li>{@code zanzibar.check.duration{result=allowed|denied}} — end-to-end check latency.
  * </ul>
  */
@@ -24,6 +26,7 @@ public class CheckMetrics {
   private final MeterRegistry registry;
   private final Counter cacheHits;
   private final Counter cacheStale;
+  private final Counter cacheConfigChanged;
   private final Counter cacheMisses;
   private final Timer allowedDuration;
   private final Timer deniedDuration;
@@ -32,6 +35,7 @@ public class CheckMetrics {
     this.registry = registry;
     this.cacheHits = cacheCounter(registry, "hit");
     this.cacheStale = cacheCounter(registry, "stale");
+    this.cacheConfigChanged = cacheCounter(registry, "config_changed");
     this.cacheMisses = cacheCounter(registry, "miss");
     this.allowedDuration = durationTimer(registry, "allowed");
     this.deniedDuration = durationTimer(registry, "denied");
@@ -45,6 +49,15 @@ public class CheckMetrics {
   /** A cached result existed but was older than the caller's Zookie, so it was re-evaluated. */
   public void cacheStale() {
     cacheStale.increment();
+  }
+
+  /**
+   * A cached result was discarded because a namespace config it relied on has since changed.
+   * Counted apart from {@code hit} on purpose: it is the one outcome that would otherwise be
+   * recorded as a success while a rule change went unapplied.
+   */
+  public void cacheConfigChanged() {
+    cacheConfigChanged.increment();
   }
 
   /** No cached result for the key. */

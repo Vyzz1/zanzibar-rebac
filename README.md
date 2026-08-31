@@ -32,7 +32,10 @@ The core question this system answers:
   A Check may pass a Zookie as a freshness floor: a cached result is only served
   when it is at least as fresh as a write the caller has already observed.
 - **Caching** — Check results are cached in Redis and **evicted on tuple changes**
-  (consumed from the event stream), so a revoke takes effect immediately.
+  (consumed from the event stream), so a revoke takes effect immediately. Each entry
+  also records the config version of every namespace consulted to answer it, so a
+  rewritten rule invalidates it too — a config change touches no tuple and would
+  otherwise evict nothing.
 - **Revocation** — `DeleteTuples` removes grants and propagates a `DELETE` event.
 - **Introspection** — `ReadTuples` (paginated) lists raw tuples; `Expand` returns
   the effective userset tree for an `object#relation` (admin/debug).
@@ -253,7 +256,7 @@ Alongside the JVM/HTTP defaults, these are the domain meters:
 
 | Metric | Tags | Meaning |
 |---|---|---|
-| `zanzibar.check.cache` | `result=hit\|stale\|miss` | Cache lookups. A rising **stale** share means callers often read right after their own writes (Zookie forced a fresh read). |
+| `zanzibar.check.cache` | `result=hit\|stale\|config_changed\|miss` | Cache lookups. A rising **stale** share means callers often read right after their own writes (Zookie forced a fresh read). **config_changed** spikes after a namespace config is published — entries answered under the old rules being thrown out — and should settle back to zero. |
 | `zanzibar.check.duration` | `result=allowed\|denied` | End-to-end check latency. |
 | `zanzibar.tuples.written` | — | Grants written. |
 | `zanzibar.tuples.deleted` | — | Revocations. |

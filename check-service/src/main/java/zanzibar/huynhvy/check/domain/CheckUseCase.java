@@ -2,6 +2,8 @@ package zanzibar.huynhvy.check.domain;
 
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import lombok.extern.slf4j.Slf4j;
@@ -80,42 +82,74 @@ public class CheckUseCase {
     }
 
     if (!cacheEnabled) {
-      return evaluate(tuple);
+      return evaluate(tuple).allowed();
     }
 
     String key = cacheKeyStrategy.key(tuple);
     Optional<CachedCheck> cached = tupleCache.get(key);
     if (cached.isPresent()) {
-      if (isFreshEnough(cached.get(), freshnessFloor)) {
+      if (!configsStillCurrent(cached.get())) {
+        // The rules changed under it; nothing evicts on a config change, so check it here.
+        metrics.cacheConfigChanged();
+      } else if (isFreshEnough(cached.get(), freshnessFloor)) {
         metrics.cacheHit();
         log.debug("Check {} -> {} (cache hit)", tuple, cached.get().allowed());
         return cached.get().allowed();
+      } else {
+        metrics.cacheStale(); // present but older than the caller's Zookie
       }
-      metrics.cacheStale(); // present but older than the caller's Zookie
     } else {
       metrics.cacheMiss();
     }
 
     // Stamp the snapshot BEFORE evaluating so it never claims to be fresher than the data read.
     long snapshotNanos = snapshotClock.nowNanos();
-    boolean allowed = evaluate(tuple);
-    tupleCache.put(key, allowed, snapshotNanos, cacheTtl);
-    return allowed;
+    Evaluation evaluation = evaluate(tuple);
+    tupleCache.put(key, evaluation.allowed(), snapshotNanos, evaluation.configVersions(), cacheTtl);
+    return evaluation.allowed();
   }
 
-  private boolean evaluate(RelationTuple tuple) {
+  /**
+   * Evaluates while recording the config version of every namespace the traversal consults. The set
+   * is not knowable up front — a userset subject or a {@code TupleToUserset} decides mid-traversal
+   * which other namespaces to follow, based on tuple data — so it is collected as it happens.
+   */
+  private Evaluation evaluate(RelationTuple tuple) {
+    Map<String, Integer> consulted = new HashMap<>();
     boolean allowed =
         graphTraverser.evaluate(
             tuple.namespace(),
             tuple.objectId(),
             tuple.relation(),
             tuple.subjectId(),
-            namespaceConfigProvider::get);
+            namespace -> {
+              NamespaceConfigView view = namespaceConfigProvider.get(namespace);
+              consulted.put(namespace, view.version());
+              return view;
+            });
     log.debug("Check {} -> {}", tuple, allowed);
-    return allowed;
+    return new Evaluation(allowed, Map.copyOf(consulted));
+  }
+
+  /**
+   * Whether every rule the cached answer relied on still holds. An entry with no recorded versions
+   * was written before they existed: it cannot be verified, so it is not trusted.
+   */
+  private boolean configsStillCurrent(CachedCheck cached) {
+    if (cached.configVersions().isEmpty()) {
+      return false;
+    }
+    for (Map.Entry<String, Integer> consulted : cached.configVersions().entrySet()) {
+      if (namespaceConfigProvider.get(consulted.getKey()).version() != consulted.getValue()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static boolean isFreshEnough(CachedCheck cached, OptionalLong freshnessFloor) {
     return freshnessFloor.isEmpty() || cached.snapshotNanos() >= freshnessFloor.getAsLong();
   }
+
+  private record Evaluation(boolean allowed, Map<String, Integer> configVersions) {}
 }
