@@ -20,6 +20,8 @@ import zanzibar.huynhvy.namespace.domain.NamespaceView;
 import zanzibar.huynhvy.namespace.domain.UpsertNamespaceUseCase;
 import zanzibar.huynhvy.namespace.domain.ValidateNamespaceUseCase;
 import zanzibar.huynhvy.namespace.exception.InvalidNamespaceConfigException;
+import zanzibar.huynhvy.namespace.outbox.NamespaceOutboxEvent;
+import zanzibar.huynhvy.namespace.outbox.NamespaceOutboxRepository;
 import zanzibar.huynhvy.namespace.repository.NamespaceConfigRepository;
 import zanzibar.huynhvy.shared.domain.UsersetRewrite;
 import zanzibar.huynhvy.shared.domain.UsersetRewrite.This;
@@ -30,13 +32,15 @@ class UpsertNamespaceUseCaseTest {
 
   private NamespaceConfigRepository repository;
   private ValidateNamespaceUseCase validate;
+  private NamespaceOutboxRepository outboxRepository;
   private UpsertNamespaceUseCase upsert;
 
   @BeforeEach
   void setUp() {
     repository = mock(NamespaceConfigRepository.class);
     validate = mock(ValidateNamespaceUseCase.class);
-    upsert = new UpsertNamespaceUseCase(repository, validate, new ObjectMapper());
+    outboxRepository = mock(NamespaceOutboxRepository.class);
+    upsert = new UpsertNamespaceUseCase(repository, outboxRepository, validate, new ObjectMapper());
     when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
   }
 
@@ -65,6 +69,7 @@ class UpsertNamespaceUseCaseTest {
     assertThatThrownBy(() -> upsert.upsert("doc", RELATIONS))
         .isInstanceOf(InvalidNamespaceConfigException.class);
     verify(repository, never()).save(any());
+    verify(outboxRepository, never()).save(any());
   }
 
   @Test
@@ -76,5 +81,36 @@ class UpsertNamespaceUseCaseTest {
 
     verify(repository).save(captor.capture());
     assertThat(captor.getValue().getConfig()).contains("\"viewer\"").contains("\"this\"");
+  }
+
+  @Test
+  void enqueues_a_config_change_event_naming_the_new_version() {
+    when(repository.findTopByNamespaceOrderByVersionDesc("doc"))
+        .thenReturn(Optional.of(NamespaceConfig.create("doc", 3, "{}")));
+    ArgumentCaptor<NamespaceOutboxEvent> captor =
+        ArgumentCaptor.forClass(NamespaceOutboxEvent.class);
+
+    upsert.upsert("doc", RELATIONS);
+
+    verify(outboxRepository).save(captor.capture());
+    NamespaceOutboxEvent event = captor.getValue();
+    assertThat(event.getEventType()).isEqualTo(NamespaceOutboxEvent.NAMESPACE_CONFIG_UPDATED);
+    assertThat(event.getAggregateId()).isEqualTo("doc");
+    assertThat(event.isPublished()).isFalse();
+    // The version consumers compare against must be the one just written, not the previous one.
+    assertThat(event.getPayload()).contains("\"namespace\":\"doc\"").contains("\"version\":4");
+  }
+
+  @Test
+  void carries_no_rules_in_the_event() {
+    when(repository.findTopByNamespaceOrderByVersionDesc("doc")).thenReturn(Optional.empty());
+    ArgumentCaptor<NamespaceOutboxEvent> captor =
+        ArgumentCaptor.forClass(NamespaceOutboxEvent.class);
+
+    upsert.upsert("doc", RELATIONS);
+
+    // A consumer re-reads the config; shipping it here would just be a second copy to go stale.
+    verify(outboxRepository).save(captor.capture());
+    assertThat(captor.getValue().getPayload()).doesNotContain("viewer");
   }
 }

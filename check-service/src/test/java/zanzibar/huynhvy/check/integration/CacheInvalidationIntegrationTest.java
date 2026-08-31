@@ -60,4 +60,28 @@ class CacheInvalidationIntegrationTest extends BaseIntegrationTest {
         .atMost(Duration.ofSeconds(10))
         .untilAsserted(() -> assertThat(tupleCache.get(key)).isEmpty());
   }
+
+  @Test
+  void a_namespace_config_change_evicts_every_cached_result_in_that_namespace() {
+    // A config change touches no tuple, so none of these keys would be reached by object eviction.
+    String reportKey = "doc:report.pdf:viewer:user:bob";
+    String otherObjectKey = "doc:budget.xlsx:editor:user:carol";
+    String otherNamespaceKey = "folder:root:viewer:user:bob";
+    tupleCache.put(reportKey, true, 1L, Map.of("doc", 1), Duration.ofMinutes(5));
+    tupleCache.put(otherObjectKey, true, 1L, Map.of("doc", 1), Duration.ofMinutes(5));
+    tupleCache.put(otherNamespaceKey, true, 1L, Map.of("folder", 1), Duration.ofMinutes(5));
+
+    rabbitTemplate.convertAndSend(
+        RabbitConfig.NAMESPACE_CHANGES_EXCHANGE, "", "{\"namespace\":\"doc\",\"version\":2}");
+
+    await()
+        .atMost(Duration.ofSeconds(10))
+        .untilAsserted(
+            () -> {
+              assertThat(tupleCache.get(reportKey)).isEmpty();
+              assertThat(tupleCache.get(otherObjectKey)).isEmpty();
+            });
+    // Another namespace's answers are not swept up by the prefix.
+    assertThat(tupleCache.get(otherNamespaceKey)).isPresent();
+  }
 }
